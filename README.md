@@ -1,1 +1,1 @@
-# AI-Powered-Resume-Screener
+# AI Powered Resume Screener
