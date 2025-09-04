@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AI Resume Review</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-black text-white min-h-screen flex flex-col items-center p-6">
+
+  <!-- Header -->
+  <h1 class="text-3xl font-bold mb-6">AI Resume Review</h1>
+
+  <!-- Upload + Controls -->
+  <div class="w-full max-w-3xl bg-zinc-900 p-6 rounded-2xl shadow-lg">
+    <!-- Drag & Drop -->
+    <label class="block mb-2 text-lg font-semibold">Upload Resume</label>
+    <div id="drop-area" class="w-full p-6 border-2 border-dashed border-zinc-700 rounded-xl text-center cursor-pointer hover:bg-zinc-800 transition">
+      <p id="fileLabel">📂 Drag & Drop your file here, or click to browse</p>
+      <input type="file" id="resume" class="hidden" accept=".pdf,.docx" />
+    </div>
+    <!-- Fallback button -->
+    <button id="browseBtn" class="mt-3 w-full bg-zinc-800 hover:bg-zinc-700 py-2 rounded-lg">Browse…</button>
+
+    <!-- Job Role -->
+    <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label class="block mb-2 text-lg font-semibold">Select Job Role</label>
+        <select id="jobRole" class="w-full p-3 bg-zinc-800 rounded-lg">
+          <option value="SDE">Software Development Engineer</option>
+          <option value="Product Manager">Product Manager</option>
+          <option value="Intern">Intern</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
+      <div>
+        <label class="block mb-2 text-lg font-semibold">Paste Job Description (optional)</label>
+        <textarea id="jobDescription" class="w-full p-3 bg-zinc-800 rounded-lg min-h-[110px]" placeholder="Paste JD here to get a precise ATS score. Required if role = Custom."></textarea>
+      </div>
+    </div>
+
+    <!-- Analyze -->
+    <button id="analyzeBtn" class="mt-6 w-full bg-emerald-500 hover:bg-emerald-600 text-black font-semibold py-3 rounded-xl">
+      Analyze Resume
+    </button>
+    <p id="status" class="mt-2 text-sm text-zinc-400"></p>
+  </div>
+
+  <!-- Output -->
+  <div id="output" class="w-full max-w-5xl bg-zinc-900 p-6 rounded-2xl shadow-lg mt-8 hidden">
+    <h2 class="text-2xl font-bold mb-4">Analysis Result</h2>
+
+    <!-- Details -->
+    <div class="overflow-x-auto">
+      <table class="table-auto w-full text-left border-collapse">
+        <thead>
+          <tr class="bg-zinc-800">
+            <th class="p-3 border border-zinc-700">Field</th>
+            <th class="p-3 border border-zinc-700">Value</th>
+          </tr>
+        </thead>
+        <tbody id="detailsTable" class="divide-y divide-zinc-800"></tbody>
+      </table>
+    </div>
+
+    <!-- Tips (scrollable to avoid overflow) -->
+    <div class="mt-6">
+      <h3 class="text-xl font-semibold mb-2">Improvement Tips</h3>
+      <div id="tips" class="bg-zinc-800 p-4 rounded-xl max-h-56 overflow-y-auto space-y-2"></div>
+    </div>
+
+    <!-- ATS -->
+    <div class="mt-6">
+      <h3 class="text-xl font-semibold mb-2">ATS Analysis</h3>
+      <div class="bg-zinc-800 p-4 rounded-xl">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-zinc-300">Match Score</span>
+          <span id="atsScore" class="text-emerald-400 font-bold">0%</span>
+        </div>
+        <div class="w-full bg-zinc-700 rounded-full h-3 mb-4">
+          <div id="atsBar" class="bg-emerald-500 h-3 rounded-full" style="width: 0%;"></div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <h4 class="font-semibold mb-2">✅ Matched Keywords</h4>
+            <div id="matched" class="flex flex-wrap gap-2"></div>
+          </div>
+          <div>
+            <h4 class="font-semibold mb-2">❌ Missing Keywords</h4>
+            <div id="missing" class="flex flex-wrap gap-2"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const dropArea = document.getElementById("drop-area");
+    const fileInput = document.getElementById("resume");
+    const fileLabel = document.getElementById("fileLabel");
+    const browseBtn = document.getElementById("browseBtn");
+    const jobRoleSelect = document.getElementById("jobRole");
+    const jdTextarea = document.getElementById("jobDescription");
+    const analyzeBtn = document.getElementById("analyzeBtn");
+    const statusEl = document.getElementById("status");
+
+    // Open file dialog
+    dropArea.addEventListener("click", () => fileInput.click());
+    browseBtn.addEventListener("click", () => fileInput.click());
+
+    // Handle change
+    fileInput.addEventListener("change", () => {
+      if (fileInput.files.length > 0) {
+        fileLabel.innerText = `✅ Uploaded: ${fileInput.files[0].name}`;
+      }
+    });
+
+    // Drag & drop
+    dropArea.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropArea.classList.add("bg-zinc-800");
+    });
+    dropArea.addEventListener("dragleave", () => {
+      dropArea.classList.remove("bg-zinc-800");
+    });
+    dropArea.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropArea.classList.remove("bg-zinc-800");
+      if (e.dataTransfer.files.length) {
+        fileInput.files = e.dataTransfer.files;
+        fileLabel.innerText = `✅ Uploaded: ${fileInput.files[0].name}`;
+      }
+    });
+
+    // Analyze click
+    analyzeBtn.addEventListener("click", async () => {
+      if (!fileInput.files.length) {
+        alert("Please upload a resume first.");
+        return;
+      }
+
+      // If custom role, require JD
+      if (jobRoleSelect.value === "custom" && !jdTextarea.value.trim()) {
+        alert("Please paste a Job Description for the custom role.");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("resume", fileInput.files[0]);
+      formData.append("jobRole", jobRoleSelect.value);
+      formData.append("jobDescription", jdTextarea.value);
+
+      analyzeBtn.disabled = true;
+      analyzeBtn.innerText = "Analyzing…";
+      statusEl.innerText = "Working on extraction, tips, and ATS analysis...";
+      try {
+        const res = await fetch("/analyze", { method: "POST", body: formData });
+        const data = await res.json();
+
+        if (!res.ok || data.error) {
+          statusEl.innerText = "";
+          analyzeBtn.disabled = false;
+          analyzeBtn.innerText = "Analyze Resume";
+          return alert(data.error || "Something went wrong.");
+        }
+
+        // Show output
+        document.getElementById("output").classList.remove("hidden");
+
+        // Details table
+        const detailsTable = document.getElementById("detailsTable");
+        detailsTable.innerHTML = "";
+        const details = data.details || {};
+        const normalize = (v) => Array.isArray(v) ? v.join(", ") : (v ?? "");
+        for (const [k, v] of Object.entries(details)) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td class="p-3 border border-zinc-700">${k}</td>
+            <td class="p-3 border border-zinc-700 whitespace-pre-wrap">${normalize(v)}</td>
+          `;
+          detailsTable.appendChild(tr);
+        }
+
+        // Tips
+        const tipsDiv = document.getElementById("tips");
+        tipsDiv.innerHTML = "";
+        (data.tips || []).forEach(t => {
+          const p = document.createElement("p");
+          p.textContent = "• " + t;
+          tipsDiv.appendChild(p);
+        });
+
+        // ATS
+        const ats = data.ats || {score: 0, matched: [], missing: []};
+        document.getElementById("atsScore").innerText = (ats.score || 0) + "%";
+        document.getElementById("atsBar").style.width = (ats.score || 0) + "%";
+
+        const matchedDiv = document.getElementById("matched");
+        const missingDiv = document.getElementById("missing");
+        matchedDiv.innerHTML = "";
+        missingDiv.innerHTML = "";
+
+        const chip = (txt, ok=true) => {
+          const span = document.createElement("span");
+          span.className = `px-2 py-1 rounded-full text-sm ${ok ? "bg-emerald-600" : "bg-rose-600"}`;
+          span.textContent = txt;
+          return span;
+        };
+
+        (ats.matched || []).forEach(k => matchedDiv.appendChild(chip(k, true)));
+        (ats.missing || []).forEach(k => missingDiv.appendChild(chip(k, false)));
+
+        statusEl.innerText = "";
+        analyzeBtn.disabled = false;
+        analyzeBtn.innerText = "Analyze Resume";
+      } catch (err) {
+        statusEl.innerText = "";
+        analyzeBtn.disabled = false;
+        analyzeBtn.innerText = "Analyze Resume";
+        alert("Network error: " + err.message);
+      }
+    });
+  </script>
+</body>
+</html>
