@@ -8,6 +8,9 @@ import requests
 import fitz         # pip install pymupdf
 import docx         # pip install python-docx
 from flask import Flask, render_template, request, jsonify
+from dotenv import load_dotenv
+import os
+
 
 app = Flask(__name__)
 app.config["UPLOAD_FOLDER"] = "uploads"
@@ -15,7 +18,9 @@ os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
 # ==== Configure Gemini ====
 # Put your key in an environment variable:  set GEMINI_API_KEY=your_key  (Windows PowerShell)
-GEMINI_API_KEY = os.getenv("AIzaSyBc4YWhjNSs5mWnMIMlALkptZwYQhTGIYM", "").strip()
+# ✅ Secure way
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
 
 # ==== Predefined JDs by role (used if user doesn't paste JD) ====
