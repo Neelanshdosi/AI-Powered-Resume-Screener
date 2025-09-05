@@ -1,1 +1,1 @@
-web: gunicorn "C:\Users\neela\Desktop\resume-screener\AI-Powered-Resume-Screener\resume_app\app.py".app:app
+web: python -m gunicorn app:app
