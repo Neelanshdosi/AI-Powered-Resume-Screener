@@ -9,4 +9,8 @@ pypdfium2==4.30.0
 Flask
 requests
 pymupdf
+flask
+python-docx
+gunicorn
+
 
