@@ -8,3 +8,5 @@ pycparser==2.22
 pypdfium2==4.30.0
 Flask
 requests
+pymupdf
+
