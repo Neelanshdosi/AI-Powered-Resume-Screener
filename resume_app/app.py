@@ -322,16 +322,35 @@ Resume:
 def home():
     return render_template("index.html")
 
+def collect_resume_uploads():
+    """Gather all uploaded resume files (supports multi-file field and legacy single field)."""
+    allowed = {"pdf", "doc", "docx"}
+    seen_names = set()
+    collected = []
+
+    for field in ("resumes", "resume"):
+        for file_obj in request.files.getlist(field):
+            if not file_obj or not file_obj.filename:
+                continue
+            filename = file_obj.filename
+            if filename in seen_names:
+                continue
+            seen_names.add(filename)
+            if not allowed_file(filename, allowed):
+                raise ValueError(
+                    f"Unsupported resume format: {filename}. Use PDF, DOC, or DOCX."
+                )
+            collected.append(file_obj)
+
+    return collected
+
+
 @app.route("/analyze", methods=["POST"])
 def analyze():
     try:
-        files = request.files.getlist("resumes")
+        files = collect_resume_uploads()
         if not files:
             return jsonify({"error": "No resumes uploaded."}), 400
-
-        invalid = [f.filename for f in files if not allowed_file(f.filename, {"pdf", "doc", "docx"})]
-        if invalid:
-            return jsonify({"error": f"Unsupported resume format(s): {', '.join(invalid)}"}), 400
 
         role = request.form.get("jobRole", "").strip()
         jd_text = request.form.get("jobDescription", "").strip()
@@ -400,6 +419,8 @@ def analyze():
             }
         )
 
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

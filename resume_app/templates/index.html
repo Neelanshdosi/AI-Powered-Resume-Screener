@@ -21,8 +21,16 @@
         <div class="space-y-4">
           <div>
             <label class="block font-semibold mb-2">Upload Resumes (PDF/DOC/DOCX)</label>
-            <input id="resumes" type="file" multiple accept=".pdf,.doc,.docx" class="w-full p-3 bg-slate-800 border border-slate-700 rounded-lg" />
-            <p id="resumeCount" class="text-sm text-slate-400 mt-1">No resumes selected</p>
+            <div
+              id="resumeDropZone"
+              class="w-full p-5 border-2 border-dashed border-slate-600 rounded-xl text-center cursor-pointer hover:bg-slate-800/80 transition"
+            >
+              <p class="text-slate-300">Drag & drop multiple resumes here, or click to browse</p>
+              <p class="text-xs text-slate-500 mt-1">Hold Ctrl (Windows) / Cmd (Mac) to select multiple files at once</p>
+            </div>
+            <input id="resumes" type="file" multiple accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="hidden" />
+            <p id="resumeCount" class="text-sm text-slate-400 mt-2">No resumes selected</p>
+            <ul id="resumeFileList" class="mt-2 space-y-1 text-sm"></ul>
           </div>
           <div>
             <label class="block font-semibold mb-2">Select Job Role</label>
@@ -87,7 +95,9 @@
 
   <script>
     const resumesInput = document.getElementById("resumes");
+    const resumeDropZone = document.getElementById("resumeDropZone");
     const resumeCount = document.getElementById("resumeCount");
+    const resumeFileList = document.getElementById("resumeFileList");
     const jdFileInput = document.getElementById("jdFile");
     const jobRole = document.getElementById("jobRole");
     const jobDescription = document.getElementById("jobDescription");
@@ -104,10 +114,78 @@
     const exportXlsxBtn = document.getElementById("exportXlsx");
 
     let allResults = [];
+    let selectedResumeFiles = [];
 
+    const ALLOWED_RESUME_EXT = [".pdf", ".doc", ".docx"];
+
+    function isAllowedResume(file) {
+      const name = (file.name || "").toLowerCase();
+      return ALLOWED_RESUME_EXT.some((ext) => name.endsWith(ext));
+    }
+
+    function fileKey(file) {
+      return `${file.name}|${file.size}|${file.lastModified}`;
+    }
+
+    function addResumeFiles(fileList) {
+      const incoming = Array.from(fileList || []);
+      const rejected = [];
+      incoming.forEach((file) => {
+        if (!isAllowedResume(file)) {
+          rejected.push(file.name);
+          return;
+        }
+        const key = fileKey(file);
+        if (!selectedResumeFiles.some((f) => fileKey(f) === key)) {
+          selectedResumeFiles.push(file);
+        }
+      });
+      if (rejected.length) {
+        alert(`Skipped unsupported file(s): ${rejected.join(", ")}\nAllowed: PDF, DOC, DOCX`);
+      }
+      renderResumeFileList();
+    }
+
+    function removeResumeFile(index) {
+      selectedResumeFiles.splice(index, 1);
+      renderResumeFileList();
+    }
+
+    function renderResumeFileList() {
+      const total = selectedResumeFiles.length;
+      resumeCount.textContent = total
+        ? `${total} resume(s) ready to analyze`
+        : "No resumes selected";
+      resumeFileList.innerHTML = "";
+      selectedResumeFiles.forEach((file, index) => {
+        const li = document.createElement("li");
+        li.className = "flex items-center justify-between gap-2 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2";
+        li.innerHTML = `
+          <span class="truncate text-slate-200" title="${file.name}">${index + 1}. ${file.name}</span>
+          <button type="button" data-index="${index}" class="text-rose-400 hover:text-rose-300 text-xs font-semibold shrink-0">Remove</button>
+        `;
+        li.querySelector("button").addEventListener("click", () => removeResumeFile(index));
+        resumeFileList.appendChild(li);
+      });
+    }
+
+    resumeDropZone.addEventListener("click", () => resumesInput.click());
     resumesInput.addEventListener("change", () => {
-      const total = resumesInput.files.length;
-      resumeCount.textContent = total ? `${total} resume(s) selected` : "No resumes selected";
+      addResumeFiles(resumesInput.files);
+      resumesInput.value = "";
+    });
+
+    resumeDropZone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      resumeDropZone.classList.add("border-emerald-500", "bg-slate-800/80");
+    });
+    resumeDropZone.addEventListener("dragleave", () => {
+      resumeDropZone.classList.remove("border-emerald-500", "bg-slate-800/80");
+    });
+    resumeDropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      resumeDropZone.classList.remove("border-emerald-500", "bg-slate-800/80");
+      addResumeFiles(e.dataTransfer.files);
     });
 
     function renderSkeletons() {
@@ -218,13 +296,13 @@
     }
 
     analyzeBtn.addEventListener("click", async () => {
-      if (!resumesInput.files.length) return alert("Please upload at least one resume.");
+      if (!selectedResumeFiles.length) return alert("Please upload at least one resume.");
       if (jobRole.value === "custom" && !jobDescription.value.trim() && !jdFileInput.files.length) {
         return alert("Provide custom JD text or upload a JD file.");
       }
 
       const form = new FormData();
-      Array.from(resumesInput.files).forEach(f => form.append("resumes", f));
+      selectedResumeFiles.forEach((f) => form.append("resumes", f, f.name));
       form.append("jobRole", jobRole.value);
       form.append("jobDescription", jobDescription.value);
       if (jdFileInput.files.length) form.append("jobDescriptionFile", jdFileInput.files[0]);
@@ -232,7 +310,7 @@
       analyzeBtn.disabled = true;
       analyzeBtn.textContent = "Analyzing...";
       progressContainer.classList.remove("hidden");
-      statusEl.textContent = `Processing ${resumesInput.files.length} resume(s)...`;
+      statusEl.textContent = `Processing ${selectedResumeFiles.length} resume(s)...`;
       renderSkeletons();
 
       let pct = 10;
