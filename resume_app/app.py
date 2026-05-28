@@ -1,17 +1,29 @@
 # File: app.py
 
+import io
 import os
-import uuid
 import re
 import json
+import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
+
 import requests
-import fitz         # pip install pymupdf
-import docx         # pip install python-docx
-from flask import Flask, render_template, request, jsonify
+import fitz  # pip install pymupdf
+import docx  # pip install python-docx
+import pandas as pd
+from flask import Flask, render_template, request, jsonify, send_file
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.config["UPLOAD_FOLDER"] = "uploads"
+app.config["MAX_CONTENT_LENGTH"] = 30 * 1024 * 1024  # 30 MB
+app.config["ALLOWED_EXTENSIONS"] = {"pdf", "doc", "docx", "txt"}
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+os.makedirs(os.path.join(app.config["UPLOAD_FOLDER"], "resumes"), exist_ok=True)
+os.makedirs(os.path.join(app.config["UPLOAD_FOLDER"], "jd"), exist_ok=True)
 
 # ==== Configure Gemini ====
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -44,18 +56,36 @@ JOB_DESCRIPTIONS = {
 }
 
 # ------------------ File text extraction ------------------ #
+def allowed_file(filename: str, allowed: set[str]) -> bool:
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in allowed
+
+
 def extract_text_from_file(filepath: str) -> str:
     text = ""
-    if filepath.lower().endswith(".pdf"):
+    lower = filepath.lower()
+    if lower.endswith(".pdf"):
         with fitz.open(filepath) as doc:
             for page in doc:
                 text += page.get_text()
-    elif filepath.lower().endswith(".docx"):
+    elif lower.endswith(".docx"):
         d = docx.Document(filepath)
         for p in d.paragraphs:
             text += p.text + "\n"
+    elif lower.endswith(".doc"):
+        # Best-effort .doc extraction; this path avoids changing architecture
+        # and keeps dependency footprint small while still supporting uploads.
+        try:
+            import textract  # pip install textract
+        except Exception as exc:
+            raise ValueError(
+                "DOC parsing requires the 'textract' package. Install it and retry."
+            ) from exc
+        text = textract.process(filepath).decode("utf-8", errors="ignore")
+    elif lower.endswith(".txt"):
+        with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+            text = f.read()
     else:
-        raise ValueError("Unsupported file format. Please upload PDF or DOCX.")
+        raise ValueError("Unsupported file format. Please upload PDF, DOC, DOCX, or TXT.")
     return text.strip()
 
 # ------------------ Basic details fallback (regex) ------------------ #
@@ -102,6 +132,91 @@ def extract_keywords(text: str) -> list:
             seen2.add(bg)
             key_ngrams.append(bg)
     return key_ngrams + uniq
+
+
+def normalize_text_tokens(text: str) -> set[str]:
+    return set(re.findall(r"[a-zA-Z][a-zA-Z+\-/#&.\d]{1,}", (text or "").lower()))
+
+
+def parse_years(text: str) -> float:
+    # Handles patterns like "3 years", "5+ yrs", "2.5 years"
+    matches = re.findall(r"(\d+(?:\.\d+)?)\s*\+?\s*(?:years|year|yrs|yr)", text.lower())
+    if matches:
+        try:
+            return max(float(x) for x in matches)
+        except Exception:
+            return 0.0
+    return 0.0
+
+
+def education_keywords(text: str) -> set[str]:
+    patterns = [
+        "b.tech", "btech", "b.e", "be", "m.tech", "mtech", "m.e", "me",
+        "b.sc", "bsc", "m.sc", "msc", "bca", "mca", "phd", "mba", "bachelor",
+        "master", "university", "college", "computer science", "information technology"
+    ]
+    lower = text.lower()
+    return {kw for kw in patterns if kw in lower}
+
+
+def compute_semantic_similarity(resume_text: str, jd_text: str) -> float:
+    if not resume_text.strip() or not jd_text.strip():
+        return 0.0
+    try:
+        corpus = [resume_text, jd_text]
+        vectorizer = TfidfVectorizer(stop_words="english")
+        tfidf_matrix = vectorizer.fit_transform(corpus)
+        sim = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][0]
+        return float(max(0.0, min(1.0, sim)))
+    except Exception:
+        return 0.0
+
+
+def compute_weighted_score(resume_text: str, jd_text: str, extracted_details: dict) -> dict:
+    jd_skills = normalize_text_tokens(jd_text)
+    resume_skills = normalize_text_tokens(" ".join(extracted_details.get("Skills", [])))
+    resume_all_tokens = normalize_text_tokens(resume_text)
+
+    # Skill matching (primary) + keyword overlap (secondary)
+    matched_skills = sorted(skill for skill in jd_skills if skill in resume_skills)
+    missing_skills = sorted(skill for skill in jd_skills if skill not in resume_skills)
+    skill_ratio = (len(matched_skills) / len(jd_skills)) if jd_skills else 0.0
+    keyword_ratio = (len(jd_skills & resume_all_tokens) / len(jd_skills)) if jd_skills else 0.0
+    skills_component = (0.7 * skill_ratio) + (0.3 * keyword_ratio)
+
+    semantic_component = compute_semantic_similarity(resume_text, jd_text)
+
+    jd_years = parse_years(jd_text)
+    resume_years = parse_years(resume_text)
+    if jd_years <= 0:
+        experience_component = 0.6 if resume_years > 0 else 0.4
+    else:
+        experience_component = min(1.0, resume_years / jd_years)
+
+    jd_edu = education_keywords(jd_text)
+    resume_edu = education_keywords(resume_text)
+    education_component = (len(jd_edu & resume_edu) / len(jd_edu)) if jd_edu else 0.6
+
+    # Weighted explainable scoring
+    weighted = (
+        (skills_component * 0.40) +
+        (semantic_component * 0.30) +
+        (experience_component * 0.20) +
+        (education_component * 0.10)
+    )
+    final_score = int(round(weighted * 100))
+
+    return {
+        "score": final_score,
+        "matched_skills": matched_skills[:25],
+        "missing_skills": missing_skills[:25],
+        "components": {
+            "skills_match": round(skills_component * 100, 2),
+            "semantic_similarity": round(semantic_component * 100, 2),
+            "experience_relevance": round(experience_component * 100, 2),
+            "education_relevance": round(education_component * 100, 2),
+        },
+    }
 
 # ------------------ ATS scoring ------------------ #
 def calculate_ats(resume_text: str, job_description: str) -> dict:
@@ -210,20 +325,25 @@ def home():
 @app.route("/analyze", methods=["POST"])
 def analyze():
     try:
-        if "resume" not in request.files:
-            return jsonify({"error": "No file uploaded."}), 400
-        file = request.files["resume"]
-        if file.filename == "":
-            return jsonify({"error": "No file selected."}), 400
+        files = request.files.getlist("resumes")
+        if not files:
+            return jsonify({"error": "No resumes uploaded."}), 400
+
+        invalid = [f.filename for f in files if not allowed_file(f.filename, {"pdf", "doc", "docx"})]
+        if invalid:
+            return jsonify({"error": f"Unsupported resume format(s): {', '.join(invalid)}"}), 400
 
         role = request.form.get("jobRole", "").strip()
         jd_text = request.form.get("jobDescription", "").strip()
+        jd_file = request.files.get("jobDescriptionFile")
 
-        fname = f"{uuid.uuid4().hex}_{file.filename}"
-        path = os.path.join(app.config["UPLOAD_FOLDER"], fname)
-        file.save(path)
-
-        resume_text = extract_text_from_file(path)
+        if jd_file and jd_file.filename:
+            if not allowed_file(jd_file.filename, {"pdf", "doc", "docx", "txt"}):
+                return jsonify({"error": "Unsupported JD file format. Use PDF, DOC, DOCX, or TXT."}), 400
+            jd_name = f"{uuid.uuid4().hex}_{secure_filename(jd_file.filename)}"
+            jd_path = os.path.join(app.config["UPLOAD_FOLDER"], "jd", jd_name)
+            jd_file.save(jd_path)
+            jd_text = extract_text_from_file(jd_path)
 
         if role.lower() == "custom":
             if not jd_text:
@@ -234,18 +354,106 @@ def analyze():
             role_label = role or "Unspecified"
             job_description = jd_text or JOB_DESCRIPTIONS.get(role_label, "")
 
-        details, tips, ai_error = get_details_and_tips_with_gemini(resume_text, role_label)
-        ats = calculate_ats(resume_text, job_description)
+        def process_resume(file_obj):
+            fname = f"{uuid.uuid4().hex}_{secure_filename(file_obj.filename)}"
+            path = os.path.join(app.config["UPLOAD_FOLDER"], "resumes", fname)
+            file_obj.save(path)
 
-        return jsonify({
-            "details": details,
-            "tips": tips,
-            "ats": ats,
-            "ai_error": ai_error
-        })
+            resume_text = extract_text_from_file(path)
+            details, tips, ai_error = get_details_and_tips_with_gemini(resume_text, role_label)
+            ats = calculate_ats(resume_text, job_description)
+            weighted = compute_weighted_score(resume_text, job_description, details)
+
+            return {
+                "candidate_name": details.get("Name") or "Unknown Candidate",
+                "filename": file_obj.filename,
+                "stored_file": fname,
+                "match_score": weighted["score"],
+                "matching_skills": weighted["matched_skills"],
+                "missing_skills": weighted["missing_skills"],
+                "experience_relevance": weighted["components"]["experience_relevance"],
+                "education_relevance": weighted["components"]["education_relevance"],
+                "semantic_similarity": weighted["components"]["semantic_similarity"],
+                "skills_match": weighted["components"]["skills_match"],
+                "keyword_score": ats["score"],
+                "details": details,
+                "tips": tips,
+                "ai_error": ai_error,
+            }
+
+        results = []
+        with ThreadPoolExecutor(max_workers=min(4, len(files))) as executor:
+            futures = [executor.submit(process_resume, f) for f in files]
+            for future in as_completed(futures):
+                results.append(future.result())
+
+        ranked = sorted(results, key=lambda x: x["match_score"], reverse=True)
+        for idx, row in enumerate(ranked, start=1):
+            row["rank"] = idx
+
+        return jsonify(
+            {
+                "job_role": role_label,
+                "total_candidates": len(ranked),
+                "processed_at": datetime.utcnow().isoformat() + "Z",
+                "results": ranked,
+            }
+        )
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/export/csv", methods=["POST"])
+def export_csv():
+    try:
+        payload = request.get_json(force=True, silent=False) or {}
+        rows = payload.get("results", [])
+        if not rows:
+            return jsonify({"error": "No results to export."}), 400
+
+        df = pd.DataFrame(rows)
+        for col in ["matching_skills", "missing_skills"]:
+            if col in df.columns:
+                df[col] = df[col].apply(lambda x: ", ".join(x) if isinstance(x, list) else x)
+
+        csv_bytes = df.to_csv(index=False).encode("utf-8")
+        return send_file(
+            io.BytesIO(csv_bytes),
+            mimetype="text/csv",
+            as_attachment=True,
+            download_name="candidate_rankings.csv",
+        )
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
+@app.route("/export/xlsx", methods=["POST"])
+def export_xlsx():
+    try:
+        payload = request.get_json(force=True, silent=False) or {}
+        rows = payload.get("results", [])
+        if not rows:
+            return jsonify({"error": "No results to export."}), 400
+
+        df = pd.DataFrame(rows)
+        for col in ["matching_skills", "missing_skills"]:
+            if col in df.columns:
+                df[col] = df[col].apply(lambda x: ", ".join(x) if isinstance(x, list) else x)
+
+        out = io.BytesIO()
+        with pd.ExcelWriter(out, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False, sheet_name="Rankings")
+        out.seek(0)
+
+        return send_file(
+            out,
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            as_attachment=True,
+            download_name="candidate_rankings.xlsx",
+        )
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

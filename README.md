@@ -1,95 +1,160 @@
-# AI Powered Resume Screener
-AI-Powered Resume Screener
+# AI-Powered Resume Screening & Candidate Ranking
 
-An AI-powered web app built with Flask and Google Gemini API that:
+A production-oriented Flask web application that screens multiple resumes against a job description, computes explainable candidate scores, ranks applicants, and exports final results to CSV/XLSX.
 
-Extracts basic resume details (Name, Email, Skills, Education, Experience, Projects).
+## Features
 
-Provides resume improvement tips.
+- Multi-resume upload in one run (`.pdf`, `.doc`, `.docx`)
+- Manual JD input or JD file upload (`.pdf`, `.doc`, `.docx`, `.txt`)
+- Asynchronous server-side resume processing
+- Candidate ranking from highest to lowest score
+- Candidate dashboard with:
+  - Name and resume filename preview
+  - Match score and rank
+  - Matching and missing skills
+  - Experience and education relevance
+  - Search, score sorting, and min-score filtering
+- Export filtered results to:
+  - CSV
+  - Excel (`.xlsx`)
+- Gemini-assisted resume detail extraction + fallback parser
 
-Performs ATS analysis based on selected job profile or custom role.
+## Tech Stack
 
-Includes a clean, minimal UI with dark theme, file upload, and analysis output.
+- **Backend:** Flask, Python
+- **Frontend:** HTML + Vanilla JS + Tailwind (CDN)
+- **AI/Scoring:** Google Gemini API + TF-IDF semantic similarity
+- **Data Export:** Pandas + OpenPyXL
+- **Document Parsing:** PyMuPDF, python-docx, textract (for `.doc`)
 
-Features
+## Project Structure
 
-Drag & drop or click to upload a PDF/DOCX resume.
+- `resume_app/app.py` - Flask routes, parsing, scoring, ranking, export APIs
+- `resume_app/templates/index.html` - Responsive dashboard UI
+- `resume_app/requirements.txt` - App dependencies
+- `uploads/` - Runtime storage for uploaded resumes and job descriptions
 
-Extracted data shown in tabular format.
+## Scoring Logic (Explainable Weighted Score)
 
-AI-generated resume tips.
+Each candidate gets a final score out of **100**:
 
-ATS analysis for different job roles (SDE, Product Manager, Intern, or custom input).
+- **Skills Match (40%)**
+  - Skill overlap from extracted candidate skills and JD
+  - Includes keyword overlap boost
+- **Semantic Similarity (30%)**
+  - TF-IDF cosine similarity between resume text and JD text
+- **Experience Relevance (20%)**
+  - Years-of-experience matching against JD expectation
+- **Education Relevance (10%)**
+  - Education term overlap (degree/qualification keywords)
 
-Setup Instructions
-1. Clone the Repository
+`Final Score = 0.40*Skills + 0.30*Semantic + 0.20*Experience + 0.10*Education`
+
+## Setup Instructions
+
+1. Clone the repository
+
+```bash
 git clone https://github.com/Neelanshdosi/AI-Powered-Resume-Screener.git
 cd AI-Powered-Resume-Screener
+```
 
-2. Create Virtual Environment
-python -m venv venv
+2. Create and activate virtual environment
 
+```bash
+python -m venv .venv
+```
 
-Activate it:
+Windows:
 
-Windows (Git Bash / PowerShell)
+```bash
+.venv\Scripts\activate
+```
 
-venv\Scripts\activate
+Linux/macOS:
 
+```bash
+source .venv/bin/activate
+```
 
-Linux / Mac
+3. Install dependencies
 
-source venv/bin/activate
-
-3. Install Dependencies
+```bash
 pip install -r requirements.txt
+```
 
+4. Configure environment variables
 
-If you don’t have requirements.txt, generate it with:
+Create `.env` in project root:
 
-pip freeze > requirements.txt
-
-4. Set Up Environment Variables
-
-Create a .env file in the project root:
-
-touch .env
-
-
-Inside .env, add:
-
+```env
 GEMINI_API_KEY=your_google_gemini_api_key_here
+```
 
+5. Run locally
 
-Note: Never commit .env to GitHub (it should be ignored via .gitignore).
+```bash
+python resume_app/app.py
+```
 
-5. Run the Application
-python app.py
+Open: [http://127.0.0.1:5000](http://127.0.0.1:5000)
 
+## Deployment Guide
 
-Then open in browser:
-http://127.0.0.1:5000
+### Render/Railway (Recommended)
 
-Tech Stack
+1. Set build command:
 
-Backend: Flask (Python)
+```bash
+pip install -r resume_app/requirements.txt
+```
 
-Frontend: HTML, CSS, JavaScript (vanilla)
+2. Set start command:
 
-AI Model: Google Gemini API
+```bash
+gunicorn resume_app.app:app
+```
 
-Parsing: PyMuPDF (fitz) for PDFs, python-docx for DOCX
+3. Configure environment variable:
+   - `GEMINI_API_KEY`
 
-Roadmap
+4. Ensure persistent disk (optional) if you want to keep uploaded files.
 
-Add support for multiple resumes at once.
+## API Overview
 
-Generate downloadable ATS report (PDF).
+- `POST /analyze`
+  - Input: multiple `resumes`, `jobRole`, optional `jobDescription`, optional `jobDescriptionFile`
+  - Output: ranked candidate list with explainable sub-scores
+- `POST /export/csv`
+  - Input: JSON `results`
+  - Output: downloadable CSV file
+- `POST /export/xlsx`
+  - Input: JSON `results`
+  - Output: downloadable XLSX file
 
-Enhance ATS scoring with real job description and resume matching.
+## Screenshots (Placeholders)
 
-Deploy on Render or Railway for live demo.
+- Dashboard overview: `docs/screenshots/dashboard-overview.png`
+- Ranking cards: `docs/screenshots/ranking-cards.png`
+- Export flow: `docs/screenshots/export-results.png`
 
-Disclaimer
+## Architecture Overview
 
-This project is for educational purposes. ATS scoring is approximate and may differ from real corporate ATS systems.
+1. User uploads resumes + JD input/file from frontend
+2. Flask stores files in `uploads/`
+3. Resumes are processed concurrently with a thread pool
+4. Candidate details and weighted scores are calculated
+5. Results are ranked and returned to dashboard
+6. Filtered results can be exported to CSV/XLSX
+
+## Future Improvements
+
+- Add authentication and recruiter workspaces
+- Add PostgreSQL for persistent candidates/jobs
+- Add background job queue (Celery/RQ) for very large batches
+- Add interview recommendation and shortlisting thresholds
+- Add advanced embedding-based semantic scoring
+
+## Disclaimer
+
+This tool provides approximate ATS-style scoring. Always combine automated screening with human review.
