@@ -22,16 +22,18 @@ A production-oriented Flask web application that screens multiple resumes agains
 ## Tech Stack
 
 - **Backend:** Flask, Python
-- **Frontend:** HTML + Vanilla JS + Tailwind (CDN)
+- **Frontend:** Next.js (React) + TypeScript + Tailwind CSS
+- **Legacy UI (optional):** `resume_app/templates/index.html`
 - **AI/Scoring:** Google Gemini API + TF-IDF semantic similarity
 - **Data Export:** Pandas + OpenPyXL
 - **Document Parsing:** PyMuPDF, python-docx, textract (for `.doc`)
 
 ## Project Structure
 
-- `resume_app/app.py` - Flask routes, parsing, scoring, ranking, export APIs
-- `resume_app/templates/index.html` - Responsive dashboard UI
-- `resume_app/requirements.txt` - App dependencies
+- `resume_app/app.py` - Flask API routes, parsing, scoring, ranking, export
+- `frontend/` - Next.js React dashboard (primary UI)
+- `resume_app/templates/index.html` - Legacy Flask template UI
+- `resume_app/requirements.txt` - Backend dependencies
 - `uploads/` - Runtime storage for uploaded resumes and job descriptions
 
 ## Scoring Logic (Explainable Weighted Score)
@@ -91,7 +93,30 @@ Create `.env` in project root:
 GEMINI_API_KEY=your_google_gemini_api_key_here
 ```
 
-5. Run locally
+5. Run locally (recommended: Next.js + Flask API)
+
+**Terminal 1 — Flask API**
+
+```bash
+python resume_app/app.py
+```
+
+API: [http://127.0.0.1:5000](http://127.0.0.1:5000)
+
+**Terminal 2 — Next.js frontend**
+
+```bash
+cd frontend
+cp .env.local.example .env.local
+npm install
+npm run dev
+```
+
+UI: [http://localhost:3000](http://localhost:3000)
+
+Set `NEXT_PUBLIC_API_URL` in `frontend/.env.local` if your API runs on a different host/port.
+
+Optional legacy UI only (Flask template):
 
 ```bash
 python resume_app/app.py
@@ -101,24 +126,21 @@ Open: [http://127.0.0.1:5000](http://127.0.0.1:5000)
 
 ## Deployment Guide
 
-### Render/Railway (Recommended)
+### Backend (Render/Railway)
 
-1. Set build command:
-
-```bash
-pip install -r resume_app/requirements.txt
-```
-
-2. Set start command:
-
-```bash
-gunicorn resume_app.app:app
-```
-
-3. Configure environment variable:
+1. Build: `pip install -r resume_app/requirements.txt`
+2. Start: `gunicorn resume_app.app:app`
+3. Env vars:
    - `GEMINI_API_KEY`
+   - `CORS_ORIGINS=https://your-frontend-domain.com`
 
-4. Ensure persistent disk (optional) if you want to keep uploaded files.
+### Frontend (Vercel/Netlify)
+
+1. Root directory: `frontend`
+2. Build: `npm run build`
+3. Start/output: Next.js default
+4. Env var:
+   - `NEXT_PUBLIC_API_URL=https://your-backend-domain.com`
 
 ## API Overview
 

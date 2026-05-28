@@ -13,11 +13,27 @@ import fitz  # pip install pymupdf
 import docx  # pip install python-docx
 import pandas as pd
 from flask import Flask, render_template, request, jsonify, send_file
+from flask_cors import CORS
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
+CORS(
+    app,
+    resources={
+        r"/*": {
+            "origins": [
+                origin.strip()
+                for origin in os.getenv(
+                    "CORS_ORIGINS",
+                    "http://localhost:3000,http://127.0.0.1:3000",
+                ).split(",")
+                if origin.strip()
+            ]
+        }
+    },
+)
 app.config["UPLOAD_FOLDER"] = "uploads"
 app.config["MAX_CONTENT_LENGTH"] = 30 * 1024 * 1024  # 30 MB
 app.config["ALLOWED_EXTENSIONS"] = {"pdf", "doc", "docx", "txt"}
@@ -321,6 +337,11 @@ Resume:
 @app.route("/")
 def home():
     return render_template("index.html")
+
+
+@app.route("/health")
+def health():
+    return jsonify({"status": "ok", "service": "resume-screener-api"})
 
 def collect_resume_uploads():
     """Gather all uploaded resume files (supports multi-file field and legacy single field)."""
