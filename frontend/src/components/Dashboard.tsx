@@ -2,32 +2,14 @@
 
 import type { CandidateResult, ViewMode } from "@/lib/types";
 import type { SortField, SortDirection } from "@/lib/filters";
-import CohortSummary from "./CohortSummary";
 import FilterBar from "./FilterBar";
 import CandidateCard from "./CandidateCard";
 import CandidateTable from "./CandidateTable";
-import { SearchX, RotateCcw } from "lucide-react";
-
-interface HistogramBucket {
-  range: string;
-  label: string;
-  count: number;
-  relativeHeight: number;
-  color: string;
-}
 
 interface DashboardProps {
   allResults: CandidateResult[];
   filteredResults: CandidateResult[];
   jobRole: string;
-  isSampleData: boolean;
-  cohortStats: {
-    total: number;
-    average: number;
-    top: number;
-    low: number;
-    histogram: HistogramBucket[];
-  };
   search: string;
   onSearchChange: (value: string) => void;
   minScore: number;
@@ -48,8 +30,6 @@ export default function Dashboard({
   allResults,
   filteredResults,
   jobRole,
-  isSampleData,
-  cohortStats,
   search,
   onSearchChange,
   minScore,
@@ -66,18 +46,23 @@ export default function Dashboard({
   onExportXlsx,
 }: DashboardProps) {
   return (
-    <section className="space-y-6">
-      {/* Cohort Summary & Distribution Histogram (Problem 10) */}
-      <CohortSummary
-        total={cohortStats.total}
-        average={cohortStats.average}
-        top={cohortStats.top}
-        jobRole={jobRole}
-        isSampleData={isSampleData}
-        histogram={cohortStats.histogram}
-      />
+    <section className="space-y-4">
+      {/* Title & Score Explanation */}
+      <div>
+        <div className="flex items-baseline justify-between">
+          <h2 className="text-xl font-medium text-[var(--ink)]">
+            Ranked candidates ({filteredResults.length})
+          </h2>
+          <span className="text-xs text-[var(--ink-soft)]">
+            Role: {jobRole}
+          </span>
+        </div>
+        <p className="text-xs text-[var(--ink-soft)] mt-1">
+          40% skills · 30% wording · 20% experience · 10% education
+        </p>
+      </div>
 
-      {/* Sticky Filter & Control Bar (Problem 6, 11, 12) */}
+      {/* Filter Row */}
       <FilterBar
         search={search}
         onSearchChange={onSearchChange}
@@ -93,54 +78,35 @@ export default function Dashboard({
         onExportXlsx={onExportXlsx}
       />
 
-      {/* Results View: Table vs Cards */}
+      {/* Table First (or Cards) */}
       {filteredResults.length === 0 ? (
-        <div className="p-8 sm:p-12 text-center bg-[var(--surface)] border border-[var(--border)] rounded-2xl space-y-3">
-          <div className="w-12 h-12 rounded-xl bg-[var(--surface-subtle)] text-[var(--text-muted)] flex items-center justify-center mx-auto">
-            <SearchX className="w-6 h-6" />
-          </div>
-          <h4 className="font-bold text-base text-[var(--text-primary)]">
-            No candidates match active filters
-          </h4>
-          <p className="text-xs text-[var(--text-muted)] max-w-sm mx-auto">
-            Try adjusting your search query or lowering the minimum score threshold to reveal more candidates.
-          </p>
-          <div className="pt-2">
-            <button
-              type="button"
-              onClick={onClearFilters}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--text-primary)] transition cursor-pointer"
-            >
-              <RotateCcw className="w-3.5 h-3.5 text-rose-500" />
-              <span>Reset all filters</span>
-            </button>
-          </div>
+        <div className="p-8 text-center text-xs text-[var(--ink-soft)] border border-[var(--line)] bg-[var(--surface)]">
+          <p>No candidates match the filter criteria.</p>
+          <button
+            type="button"
+            onClick={onClearFilters}
+            className="mt-2 text-[var(--gap)] underline cursor-pointer"
+          >
+            Reset filters
+          </button>
         </div>
       ) : viewMode === "table" ? (
-        <div>
-          {/* Table View (sortable by all score columns) */}
-          <CandidateTable
-            candidates={filteredResults}
-            sortField={sortField}
-            sortDirection={sortDirection}
-            onSort={(field) => onSort(field)}
-            onSelectCandidate={onSelectCandidate}
-          />
-        </div>
+        <CandidateTable
+          candidates={filteredResults}
+          sortField={sortField}
+          sortDirection={sortDirection}
+          onSort={(f) => onSort(f)}
+          onSelectCandidate={onSelectCandidate}
+        />
       ) : (
-        /* Card Grid View */
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-          {filteredResults.map((candidate, idx) => {
-            const stableKey =
-              candidate.stored_file || `${candidate.filename}-${candidate.rank}-${idx}`;
-            return (
-              <CandidateCard
-                key={stableKey}
-                candidate={candidate}
-                onSelect={onSelectCandidate}
-              />
-            );
-          })}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {filteredResults.map((c, idx) => (
+            <CandidateCard
+              key={c.stored_file || `${c.filename}-${c.rank}-${idx}`}
+              candidate={c}
+              onSelect={onSelectCandidate}
+            />
+          ))}
         </div>
       )}
     </section>

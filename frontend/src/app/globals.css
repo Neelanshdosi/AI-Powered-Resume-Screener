@@ -1,197 +1,95 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: var(--font-plus-jakarta), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-sans: var(--font-hanken), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --color-ground: var(--ground);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-line: var(--line);
+  --color-match: var(--match);
+  --color-gap: var(--gap);
+  --color-flag: var(--flag);
 }
 
 :root {
-  /* Surface & structure */
-  --canvas: #f8fafc;
-  --surface: #ffffff;
-  --surface-hover: #f1f5f9;
-  --surface-subtle: #f8fafc;
-  --border: #cbd5e1;
-  --border-subtle: #e2e8f0;
-
-  /* Typography */
-  --text-primary: #0f172a;
-  --text-secondary: #334155;
-  --text-muted: #64748b;
-
-  /* Brand & Actions */
-  --accent: #2563eb;
-  --accent-hover: #1d4ed8;
-  --accent-subtle: #eff6ff;
-  --accent-foreground: #ffffff;
-
-  /* Evaluation & Semantic Signals */
-  --fit-high: #059669;
-  --fit-high-bg: #ecfdf5;
-  --fit-high-border: #a7f3d0;
-  
-  --fit-mid: #d97706;
-  --fit-mid-bg: #fffbeb;
-  --fit-mid-border: #fde68a;
-
-  --fit-gap: #dc2626;
-  --fit-gap-bg: #fef2f2;
-  --fit-gap-border: #fecaca;
-
-  --fit-semantic: #2563eb;
-  --fit-semantic-bg: #eff6ff;
-
-  --fit-exp: #d97706;
-  --fit-exp-bg: #fffbeb;
-
-  --fit-edu: #7c3aed;
-  --fit-edu-bg: #f5f3ff;
-
-  /* Focus rings */
-  --focus-ring: #3b82f6;
+  --ground: #ECEFEA;
+  --surface: #F8FAF7;
+  --ink: #2B1B34;
+  --ink-soft: #6B5E73;
+  --line: #D3D9D2;
+  --match: #2E7D74;
+  --gap: #B5334A;
+  --flag: #E0A526;
+  --flag-text: #835B07; /* WCAG AA accessible contrast for text on Chalk surface */
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --canvas: #090d16;
-    --surface: #111827;
-    --surface-hover: #1e293b;
-    --surface-subtle: #0c121e;
-    --border: #334155;
-    --border-subtle: #1e293b;
-
-    --text-primary: #f8fafc;
-    --text-secondary: #cbd5e1;
-    --text-muted: #94a3b8;
-
-    --accent: #3b82f6;
-    --accent-hover: #60a5fa;
-    --accent-subtle: #1e293b;
-    --accent-foreground: #ffffff;
-
-    --fit-high: #10b981;
-    --fit-high-bg: rgba(16, 185, 129, 0.14);
-    --fit-high-border: rgba(16, 185, 129, 0.35);
-
-    --fit-mid: #f59e0b;
-    --fit-mid-bg: rgba(245, 158, 11, 0.14);
-    --fit-mid-border: rgba(245, 158, 11, 0.35);
-
-    --fit-gap: #f43f5e;
-    --fit-gap-bg: rgba(244, 63, 94, 0.14);
-    --fit-gap-border: rgba(244, 63, 94, 0.35);
-
-    --fit-semantic: #60a5fa;
-    --fit-semantic-bg: rgba(59, 130, 246, 0.14);
-
-    --fit-exp: #fbbf24;
-    --fit-exp-bg: rgba(251, 191, 36, 0.14);
-
-    --fit-edu: #c084fc;
-    --fit-edu-bg: rgba(192, 132, 252, 0.14);
-
-    --focus-ring: #60a5fa;
+    --ground: #1D1424;
+    --surface: #2A1E33;
+    --ink: #EDE7EF;
+    --ink-soft: #A99BB3;
+    --line: #3D2F48;
+    --match: #6CC2B6;
+    --gap: #F0869A;
+    --flag: #F2C14E;
+    --flag-text: #F2C14E;
   }
 }
 
 :root[data-theme="dark"],
 .dark {
-  --canvas: #090d16;
-  --surface: #111827;
-  --surface-hover: #1e293b;
-  --surface-subtle: #0c121e;
-  --border: #334155;
-  --border-subtle: #1e293b;
-
-  --text-primary: #f8fafc;
-  --text-secondary: #cbd5e1;
-  --text-muted: #94a3b8;
-
-  --accent: #3b82f6;
-  --accent-hover: #60a5fa;
-  --accent-subtle: #1e293b;
-  --accent-foreground: #ffffff;
-
-  --fit-high: #10b981;
-  --fit-high-bg: rgba(16, 185, 129, 0.14);
-  --fit-high-border: rgba(16, 185, 129, 0.35);
-
-  --fit-mid: #f59e0b;
-  --fit-mid-bg: rgba(245, 158, 11, 0.14);
-  --fit-mid-border: rgba(245, 158, 11, 0.35);
-
-  --fit-gap: #f43f5e;
-  --fit-gap-bg: rgba(244, 63, 94, 0.14);
-  --fit-gap-border: rgba(244, 63, 94, 0.35);
-
-  --fit-semantic: #60a5fa;
-  --fit-semantic-bg: rgba(59, 130, 246, 0.14);
-
-  --fit-exp: #fbbf24;
-  --fit-exp-bg: rgba(251, 191, 36, 0.14);
-
-  --fit-edu: #c084fc;
-  --fit-edu-bg: rgba(192, 132, 252, 0.14);
-
-  --focus-ring: #60a5fa;
+  --ground: #1D1424;
+  --surface: #2A1E33;
+  --ink: #EDE7EF;
+  --ink-soft: #A99BB3;
+  --line: #3D2F48;
+  --match: #6CC2B6;
+  --gap: #F0869A;
+  --flag: #F2C14E;
+  --flag-text: #F2C14E;
 }
 
 :root[data-theme="light"],
 .light {
-  --canvas: #f8fafc;
-  --surface: #ffffff;
-  --surface-hover: #f1f5f9;
-  --surface-subtle: #f8fafc;
-  --border: #cbd5e1;
-  --border-subtle: #e2e8f0;
+  --ground: #ECEFEA;
+  --surface: #F8FAF7;
+  --ink: #2B1B34;
+  --ink-soft: #6B5E73;
+  --line: #D3D9D2;
+  --match: #2E7D74;
+  --gap: #B5334A;
+  --flag: #E0A526;
+  --flag-text: #835B07;
+}
 
-  --text-primary: #0f172a;
-  --text-secondary: #334155;
-  --text-muted: #64748b;
-
-  --accent: #2563eb;
-  --accent-hover: #1d4ed8;
-  --accent-subtle: #eff6ff;
-  --accent-foreground: #ffffff;
-
-  --fit-high: #059669;
-  --fit-high-bg: #ecfdf5;
-  --fit-high-border: #a7f3d0;
-
-  --fit-mid: #d97706;
-  --fit-mid-bg: #fffbeb;
-  --fit-mid-border: #fde68a;
-
-  --fit-gap: #dc2626;
-  --fit-gap-bg: #fef2f2;
-  --fit-gap-border: #fecaca;
-
-  --fit-semantic: #2563eb;
-  --fit-semantic-bg: #eff6ff;
-
-  --fit-exp: #d97706;
-  --fit-exp-bg: #fffbeb;
-
-  --fit-edu: #7c3aed;
-  --fit-edu-bg: #f5f3ff;
-
-  --focus-ring: #3b82f6;
+* {
+  border-color: var(--line);
 }
 
 body {
   margin: 0;
   font-family: var(--font-sans);
-  background-color: var(--canvas);
-  color: var(--text-primary);
+  background-color: var(--ground);
+  color: var(--ink);
+  line-height: 1.5;
 }
 
-/* Accessibility: Focus visible */
+/* Tabular figures for data tables, metrics, ranks */
+.tabular-nums,
+table,
+[data-tabular="true"] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Accessible focus visible */
 :focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: 2px solid var(--match);
   outline-offset: 2px;
 }
 
-/* Accessibility: Reduced motion support */
+/* Motion only where it shows change; respect prefers-reduced-motion */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -203,32 +101,17 @@ body {
   }
 }
 
-/* Custom scrollbars */
+/* Minimal hairline scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
+  background: var(--line);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
+  background: var(--ink-soft);
 }
-
-@keyframes indeterminate {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(350%);
-  }
-}
-
-.animate-indeterminate {
-  animation: indeterminate 1.5s infinite ease-in-out;
-}
-

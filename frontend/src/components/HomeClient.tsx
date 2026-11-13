@@ -30,7 +30,6 @@ export default function HomeClient() {
     results,
     error,
     setError,
-    isSampleData,
     isValid,
     validationReason,
     runAnalysis,
@@ -44,7 +43,6 @@ export default function HomeClient() {
     selectedCandidate,
     setSelectedCandidate,
     filteredResults,
-    cohortStats,
     setSearch,
     setMinScore,
     setSort,
@@ -62,14 +60,14 @@ export default function HomeClient() {
       const blob = await exportResults(kind, filteredResults);
       const filename =
         kind === "csv"
-          ? `candidate_rankings_${jobRole.toLowerCase().replace(/\s+/g, "_")}.csv`
-          : `candidate_rankings_${jobRole.toLowerCase().replace(/\s+/g, "_")}.xlsx`;
+          ? `candidates_${jobRole.toLowerCase().replace(/\s+/g, "_")}.csv`
+          : `candidates_${jobRole.toLowerCase().replace(/\s+/g, "_")}.xlsx`;
 
       downloadBlob(blob, filename);
       addToast(
         "success",
-        `Downloaded ${filteredResults.length} candidate rankings as ${kind.toUpperCase()}.`,
-        "Export successful"
+        `Exported ${filteredResults.length} candidates as ${kind.toUpperCase()}.`,
+        "Export complete"
       );
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Export failed.";
@@ -80,20 +78,24 @@ export default function HomeClient() {
   const handleRejectedFiles = (rejected: string[]) => {
     addToast(
       "warning",
-      `Skipped unsupported file(s): ${rejected.join(", ")}. Allowed formats: PDF, DOC, DOCX.`,
+      `Skipped unsupported file(s): ${rejected.join(", ")}. Use PDF, DOC, or DOCX.`,
       "File format notice"
     );
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[var(--canvas)] text-[var(--text-primary)] transition-colors">
-      <Header
-        onLoadSample={loadSampleData}
-        hasResults={results.length > 0}
-      />
+    <div className="min-h-screen flex flex-col bg-[var(--ground)] text-[var(--ink)]">
+      <Header />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
-        {/* Intake & Form Setup */}
+      <main className="flex-1 max-w-[1100px] w-full mx-auto px-4 sm:px-6 py-8 space-y-8">
+        {/* Title area */}
+        <div>
+          <h1 className="text-3xl font-medium tracking-tight text-[var(--ink)]">
+            Resume screener
+          </h1>
+        </div>
+
+        {/* Intake setup */}
         <AnalysisForm
           managedFiles={managedFiles}
           onFilesChange={setManagedFiles}
@@ -117,28 +119,18 @@ export default function HomeClient() {
           onRejectedFiles={handleRejectedFiles}
         />
 
-        {/* Screening Results Section */}
+        {/* Results area */}
         {analyzing ? (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between text-xs text-[var(--text-muted)] px-1">
-              <span className="font-semibold text-[var(--text-secondary)]">
-                {statusMessage}
-              </span>
-              <span>Analyzing multidimensional fit...</span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <CandidateSkeleton key={i} />
-              ))}
-            </div>
+          <div className="space-y-3">
+            <CandidateSkeleton />
+            <CandidateSkeleton />
+            <CandidateSkeleton />
           </div>
         ) : results.length > 0 ? (
           <Dashboard
             allResults={results}
             filteredResults={filteredResults}
             jobRole={jobRole}
-            isSampleData={isSampleData}
-            cohortStats={cohortStats}
             search={filters.search}
             onSearchChange={setSearch}
             minScore={filters.minScore}
@@ -159,7 +151,7 @@ export default function HomeClient() {
         )}
       </main>
 
-      {/* Candidate Dossier Drawer (Problem 5) */}
+      {/* Candidate detail drawer */}
       <CandidateDrawer
         candidate={selectedCandidate}
         onClose={() => setSelectedCandidate(null)}

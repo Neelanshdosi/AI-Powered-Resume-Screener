@@ -1,22 +1,17 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
+import { Hanken_Grotesk } from "next/font/google";
 import "./globals.css";
 
-const plusJakartaSans = Plus_Jakarta_Sans({
+const hankenGrotesk = Hanken_Grotesk({
   subsets: ["latin"],
-  variable: "--font-plus-jakarta",
-  display: "swap",
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-jetbrains-mono",
+  weight: ["400", "500", "700"],
+  variable: "--font-hanken",
   display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "SkillScan.AI - Intelligent Candidate Screening & Ranking",
-  description: "Explainable AI-powered resume screening, cohort analysis, and candidate ranking.",
+  title: "SkillScan.AI - Resume Screener",
+  description: "Rank candidates against job criteria with explainable scoring.",
 };
 
 export default function RootLayout({
@@ -27,7 +22,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${plusJakartaSans.variable} ${jetbrainsMono.variable} font-sans bg-[var(--canvas)] text-[var(--text-primary)] min-h-screen antialiased transition-colors duration-150`}
+        className={`${hankenGrotesk.variable} font-sans bg-[var(--ground)] text-[var(--ink)] min-h-screen antialiased selection:bg-[var(--line)]`}
       >
         {children}
       </body>
