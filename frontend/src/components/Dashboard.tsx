@@ -1,92 +1,148 @@
 "use client";
 
-import type { CandidateResult } from "@/lib/types";
-import { filterCandidates } from "@/lib/filters";
+import type { CandidateResult, ViewMode } from "@/lib/types";
+import type { SortField, SortDirection } from "@/lib/filters";
+import CohortSummary from "./CohortSummary";
+import FilterBar from "./FilterBar";
 import CandidateCard from "./CandidateCard";
+import CandidateTable from "./CandidateTable";
+import { SearchX, RotateCcw } from "lucide-react";
 
-type DashboardProps = {
-  results: CandidateResult[];
+interface HistogramBucket {
+  range: string;
+  label: string;
+  count: number;
+  relativeHeight: number;
+  color: string;
+}
+
+interface DashboardProps {
+  allResults: CandidateResult[];
+  filteredResults: CandidateResult[];
+  jobRole: string;
+  isSampleData: boolean;
+  cohortStats: {
+    total: number;
+    average: number;
+    top: number;
+    low: number;
+    histogram: HistogramBucket[];
+  };
   search: string;
-  sortOrder: "asc" | "desc";
-  minScore: number;
   onSearchChange: (value: string) => void;
-  onSortChange: (value: "asc" | "desc") => void;
+  minScore: number;
   onMinScoreChange: (value: number) => void;
-  onExportCsv: () => void;
-  onExportXlsx: () => void;
-};
+  sortField: SortField;
+  sortDirection: SortDirection;
+  onSort: (field: SortField, direction?: SortDirection) => void;
+  viewMode: ViewMode;
+  onViewModeChange: (mode: ViewMode) => void;
+  hasActiveFilters: boolean;
+  onClearFilters: () => void;
+  onSelectCandidate: (candidate: CandidateResult) => void;
+  onExportCsv: () => Promise<void>;
+  onExportXlsx: () => Promise<void>;
+}
 
 export default function Dashboard({
-  results,
+  allResults,
+  filteredResults,
+  jobRole,
+  isSampleData,
+  cohortStats,
   search,
-  sortOrder,
-  minScore,
   onSearchChange,
-  onSortChange,
+  minScore,
   onMinScoreChange,
+  sortField,
+  sortDirection,
+  onSort,
+  viewMode,
+  onViewModeChange,
+  hasActiveFilters,
+  onClearFilters,
+  onSelectCandidate,
   onExportCsv,
   onExportXlsx,
 }: DashboardProps) {
-  const rows = filterCandidates(results, search, minScore, sortOrder);
-
   return (
-    <section className="space-y-4">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 md:p-5">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <input
-            type="text"
-            placeholder="Search candidate..."
-            value={search}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="p-3 bg-slate-800 border border-slate-700 rounded-lg"
-          />
-          <select
-            value={sortOrder}
-            onChange={(e) => onSortChange(e.target.value as "asc" | "desc")}
-            className="p-3 bg-slate-800 border border-slate-700 rounded-lg"
-          >
-            <option value="desc">Sort by score: High to Low</option>
-            <option value="asc">Sort by score: Low to High</option>
-          </select>
-          <input
-            type="number"
-            min={0}
-            max={100}
-            value={minScore}
-            onChange={(e) => onMinScoreChange(Number(e.target.value) || 0)}
-            placeholder="Minimum score"
-            className="p-3 bg-slate-800 border border-slate-700 rounded-lg"
-          />
-          <div className="flex gap-2">
+    <section className="space-y-6">
+      {/* Cohort Summary & Distribution Histogram (Problem 10) */}
+      <CohortSummary
+        total={cohortStats.total}
+        average={cohortStats.average}
+        top={cohortStats.top}
+        jobRole={jobRole}
+        isSampleData={isSampleData}
+        histogram={cohortStats.histogram}
+      />
+
+      {/* Sticky Filter & Control Bar (Problem 6, 11, 12) */}
+      <FilterBar
+        search={search}
+        onSearchChange={onSearchChange}
+        minScore={minScore}
+        onMinScoreChange={onMinScoreChange}
+        viewMode={viewMode}
+        onViewModeChange={onViewModeChange}
+        totalCount={allResults.length}
+        filteredCount={filteredResults.length}
+        hasActiveFilters={hasActiveFilters}
+        onClearFilters={onClearFilters}
+        onExportCsv={onExportCsv}
+        onExportXlsx={onExportXlsx}
+      />
+
+      {/* Results View: Table vs Cards */}
+      {filteredResults.length === 0 ? (
+        <div className="p-8 sm:p-12 text-center bg-[var(--surface)] border border-[var(--border)] rounded-2xl space-y-3">
+          <div className="w-12 h-12 rounded-xl bg-[var(--surface-subtle)] text-[var(--text-muted)] flex items-center justify-center mx-auto">
+            <SearchX className="w-6 h-6" />
+          </div>
+          <h4 className="font-bold text-base text-[var(--text-primary)]">
+            No candidates match active filters
+          </h4>
+          <p className="text-xs text-[var(--text-muted)] max-w-sm mx-auto">
+            Try adjusting your search query or lowering the minimum score threshold to reveal more candidates.
+          </p>
+          <div className="pt-2">
             <button
               type="button"
-              onClick={onExportCsv}
-              className="flex-1 bg-sky-600 hover:bg-sky-700 py-3 rounded-lg font-semibold"
+              onClick={onClearFilters}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--text-primary)] transition cursor-pointer"
             >
-              Export CSV
-            </button>
-            <button
-              type="button"
-              onClick={onExportXlsx}
-              className="flex-1 bg-indigo-600 hover:bg-indigo-700 py-3 rounded-lg font-semibold"
-            >
-              Export XLSX
+              <RotateCcw className="w-3.5 h-3.5 text-rose-500" />
+              <span>Reset all filters</span>
             </button>
           </div>
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {!rows.length ? (
-          <div className="col-span-full p-6 bg-slate-900 border border-slate-800 rounded-xl text-slate-300">
-            No candidates match current filters.
-          </div>
-        ) : (
-          rows.map((candidate) => (
-            <CandidateCard key={`${candidate.rank}-${candidate.filename}`} candidate={candidate} />
-          ))
-        )}
-      </div>
+      ) : viewMode === "table" ? (
+        <div>
+          {/* Table View (sortable by all score columns) */}
+          <CandidateTable
+            candidates={filteredResults}
+            sortField={sortField}
+            sortDirection={sortDirection}
+            onSort={(field) => onSort(field)}
+            onSelectCandidate={onSelectCandidate}
+          />
+        </div>
+      ) : (
+        /* Card Grid View */
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          {filteredResults.map((candidate, idx) => {
+            const stableKey =
+              candidate.stored_file || `${candidate.filename}-${candidate.rank}-${idx}`;
+            return (
+              <CandidateCard
+                key={stableKey}
+                candidate={candidate}
+                onSelect={onSelectCandidate}
+              />
+            );
+          })}
+        </div>
+      )}
     </section>
   );
 }
