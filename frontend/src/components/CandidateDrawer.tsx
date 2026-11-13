@@ -135,7 +135,7 @@ export default function CandidateDrawer({ candidate, onClose }: CandidateDrawerP
         <div className="p-6 space-y-6 flex-1 text-sm text-[var(--ink)]">
           {/* AI error notice */}
           {candidate.ai_error && (
-            <div className="text-xs text-[var(--flag-text)] py-2 border-b border-[var(--line)]">
+            <div className="text-xs text-[var(--flag)] py-2 border-b border-[var(--line)]">
               AI extraction unavailable, used basic parser. ({candidate.ai_error})
             </div>
           )}
@@ -188,7 +188,7 @@ export default function CandidateDrawer({ candidate, onClose }: CandidateDrawerP
 
           {/* 4 Score Breakdown Parts as thin bars */}
           <div className="space-y-3 pb-5 border-b border-[var(--line)]">
-            <h3 className="text-xs uppercase text-[var(--ink-soft)] font-medium tracking-wider">
+            <h3 className="text-xs text-[var(--ink-soft)] font-medium">
               Score breakdown
             </h3>
 
@@ -260,14 +260,14 @@ export default function CandidateDrawer({ candidate, onClose }: CandidateDrawerP
           {/* Skills Breakdown */}
           <div className="space-y-4 pb-5 border-b border-[var(--line)]">
             <div>
-              <span className="block text-xs uppercase text-[var(--ink-soft)] font-medium mb-2">
+              <span className="block text-xs text-[var(--ink-soft)] font-medium mb-2">
                 Matching skills ({candidate.matching_skills?.length || 0})
               </span>
               <SkillChips skills={candidate.matching_skills || []} variant="match" />
             </div>
 
             <div>
-              <span className="block text-xs uppercase text-[var(--ink-soft)] font-medium mb-2">
+              <span className="block text-xs text-[var(--ink-soft)] font-medium mb-2">
                 Missing skills ({candidate.missing_skills?.length || 0})
               </span>
               <SkillChips skills={candidate.missing_skills || []} variant="missing" />
@@ -277,7 +277,7 @@ export default function CandidateDrawer({ candidate, onClose }: CandidateDrawerP
           {/* AI Tips / Coaching notes */}
           {tips.length > 0 && (
             <div className="space-y-2 pb-5 border-b border-[var(--line)]">
-              <h3 className="text-xs uppercase text-[var(--ink-soft)] font-medium tracking-wider">
+              <h3 className="text-xs text-[var(--ink-soft)] font-medium">
                 Review notes
               </h3>
               <ul className="space-y-1.5 text-xs text-[var(--ink-soft)] list-disc list-inside">
@@ -293,7 +293,7 @@ export default function CandidateDrawer({ candidate, onClose }: CandidateDrawerP
           {/* Experience */}
           {experiences.length > 0 && (
             <div className="space-y-2 pb-5 border-b border-[var(--line)]">
-              <h3 className="text-xs uppercase text-[var(--ink-soft)] font-medium tracking-wider">
+              <h3 className="text-xs text-[var(--ink-soft)] font-medium">
                 Experience
               </h3>
               <div className="space-y-2 text-xs text-[var(--ink)]">
@@ -309,7 +309,7 @@ export default function CandidateDrawer({ candidate, onClose }: CandidateDrawerP
           {/* Education */}
           {educations.length > 0 && (
             <div className="space-y-2 pb-5 border-b border-[var(--line)]">
-              <h3 className="text-xs uppercase text-[var(--ink-soft)] font-medium tracking-wider">
+              <h3 className="text-xs text-[var(--ink-soft)] font-medium">
                 Education
               </h3>
               <div className="space-y-1.5 text-xs text-[var(--ink)]">
@@ -323,7 +323,7 @@ export default function CandidateDrawer({ candidate, onClose }: CandidateDrawerP
           {/* Projects */}
           {projects.length > 0 && (
             <div className="space-y-2">
-              <h3 className="text-xs uppercase text-[var(--ink-soft)] font-medium tracking-wider">
+              <h3 className="text-xs text-[var(--ink-soft)] font-medium">
                 Projects
               </h3>
               <div className="space-y-1.5 text-xs text-[var(--ink)]">

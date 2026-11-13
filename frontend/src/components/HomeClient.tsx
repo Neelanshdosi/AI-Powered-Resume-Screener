@@ -66,7 +66,7 @@ export default function HomeClient() {
       downloadBlob(blob, filename);
       addToast(
         "success",
-        `Exported ${filteredResults.length} candidates as ${kind.toUpperCase()}.`,
+        `Exported ${filteredResults.length} candidates as ${kind === "csv" ? "CSV" : "Excel"}.`,
         "Export complete"
       );
     } catch (err) {
@@ -114,7 +114,6 @@ export default function HomeClient() {
           isValid={isValid}
           validationReason={validationReason}
           onRunAnalysis={runAnalysis}
-          onLoadSample={loadSampleData}
           hasResults={results.length > 0}
           onRejectedFiles={handleRejectedFiles}
         />

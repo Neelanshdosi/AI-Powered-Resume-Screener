@@ -38,7 +38,7 @@ export default function CandidateCard({ candidate, onSelect }: CandidateCardProp
       </div>
 
       {candidate.ai_error && (
-        <div className="text-[11px] text-[var(--flag-text)]">
+        <div className="text-[11px] text-[var(--flag)]">
           Basic parser fallback
         </div>
       )}

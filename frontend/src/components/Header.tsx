@@ -15,10 +15,10 @@ export default function Header() {
         <button
           type="button"
           onClick={toggleTheme}
-          aria-label={`Switch to ${resolvedTheme === "dark" ? "light" : "dark"} theme`}
+          aria-label={resolvedTheme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
           className="text-xs text-[var(--ink-soft)] hover:text-[var(--ink)] transition py-1 px-2 cursor-pointer"
         >
-          {resolvedTheme === "dark" ? "Light theme" : "Dark theme"}
+          {resolvedTheme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
         </button>
       </div>
     </header>

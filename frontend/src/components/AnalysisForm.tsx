@@ -24,7 +24,6 @@ interface AnalysisFormProps {
   isValid: boolean;
   validationReason: string | null;
   onRunAnalysis: () => void;
-  onLoadSample: () => void;
   hasResults: boolean;
   onRejectedFiles: (files: string[]) => void;
 }
@@ -47,7 +46,6 @@ export default function AnalysisForm({
   isValid,
   validationReason,
   onRunAnalysis,
-  onLoadSample,
   hasResults,
   onRejectedFiles,
 }: AnalysisFormProps) {
@@ -65,7 +63,7 @@ export default function AnalysisForm({
         <div className="flex items-center gap-2 text-[var(--ink)]">
           <span className="text-[var(--ink-soft)]">Setup:</span>
           <span>
-            {selectedRoleLabel} · {managedFiles.length > 0 ? `${managedFiles.length} resumes staged` : "7 candidates scored"}
+            {selectedRoleLabel} · {managedFiles.length > 0 ? `${managedFiles.length} resumes staged` : "Active cohort"}
           </span>
         </div>
         <button
@@ -82,7 +80,7 @@ export default function AnalysisForm({
   return (
     <section className="border border-[var(--line)] bg-[var(--surface)] p-4 sm:p-5 space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium text-[var(--ink)] uppercase tracking-wider">
+        <h2 className="text-sm font-medium text-[var(--ink)]">
           Intake setup
         </h2>
         {hasResults && (
@@ -97,7 +95,7 @@ export default function AnalysisForm({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Left Column: Role & Resumes */}
+        {/* Left column: Role & Resumes */}
         <div className="space-y-3">
           <div>
             <label htmlFor="role-select" className="block text-xs font-medium text-[var(--ink-soft)] mb-1">
@@ -129,7 +127,7 @@ export default function AnalysisForm({
           </div>
         </div>
 
-        {/* Right Column: Job Description */}
+        {/* Right column: Job Description */}
         <div>
           <JobDescriptionInput
             mode={jdInputMode}
@@ -164,21 +162,12 @@ export default function AnalysisForm({
       )}
 
       {/* Button Row: Exactly ONE primary button */}
-      <div className="pt-2 border-t border-[var(--line)] flex flex-wrap items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={onLoadSample}
-          disabled={analyzing}
-          className="text-xs text-[var(--ink-soft)] hover:text-[var(--ink)] underline cursor-pointer"
-        >
-          Try sample data
-        </button>
-
+      <div className="pt-2 border-t border-[var(--line)] flex items-center justify-end">
         <button
           type="button"
           onClick={onRunAnalysis}
           disabled={!isValid || analyzing}
-          className="bg-[var(--ink)] text-[var(--surface)] hover:opacity-90 disabled:opacity-40 text-xs font-medium py-2 px-4 transition cursor-pointer"
+          className="bg-[var(--ink)] text-[var(--ground)] hover:opacity-90 disabled:opacity-45 text-xs font-medium py-2 px-4 transition cursor-pointer disabled:cursor-not-allowed"
         >
           {analyzing ? "Scoring resumes..." : managedFiles.length > 0 ? `Rank ${managedFiles.length} candidates` : "Rank candidates"}
         </button>

@@ -31,26 +31,25 @@ export default function JobDescriptionInput({
           Job description {isCustomRole && <span className="text-[var(--gap)]">*</span>}
         </label>
 
-        {/* Quiet text tabs */}
-        <div className="flex items-center gap-2">
+        {/* Tab switchers with --flag underline for active state */}
+        <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => onModeChange("paste")}
-            className={`cursor-pointer ${
+            className={`pb-0.5 cursor-pointer transition ${
               mode === "paste"
-                ? "text-[var(--ink)] font-medium underline underline-offset-4"
+                ? "text-[var(--ink)] font-medium border-b-2 border-[var(--flag)]"
                 : "text-[var(--ink-soft)] hover:text-[var(--ink)]"
             }`}
           >
             Paste
           </button>
-          <span className="text-[var(--line)]">/</span>
           <button
             type="button"
             onClick={() => onModeChange("upload")}
-            className={`cursor-pointer ${
+            className={`pb-0.5 cursor-pointer transition ${
               mode === "upload"
-                ? "text-[var(--ink)] font-medium underline underline-offset-4"
+                ? "text-[var(--ink)] font-medium border-b-2 border-[var(--flag)]"
                 : "text-[var(--ink-soft)] hover:text-[var(--ink)]"
             }`}
           >

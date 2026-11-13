@@ -13,55 +13,51 @@
 }
 
 :root {
-  --ground: #ECEFEA;
-  --surface: #F8FAF7;
-  --ink: #2B1B34;
-  --ink-soft: #6B5E73;
-  --line: #D3D9D2;
-  --match: #2E7D74;
-  --gap: #B5334A;
-  --flag: #E0A526;
-  --flag-text: #835B07; /* WCAG AA accessible contrast for text on Chalk surface */
+  --ground: #EEE7E6;
+  --surface: #FAF6F5;
+  --ink: #2A1415;
+  --ink-soft: #6B5456;
+  --line: #D9CCCB;
+  --match: #3F6E49;
+  --gap: #A12D2D;
+  --flag: #8A5F0C;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --ground: #1D1424;
-    --surface: #2A1E33;
-    --ink: #EDE7EF;
-    --ink-soft: #A99BB3;
-    --line: #3D2F48;
-    --match: #6CC2B6;
-    --gap: #F0869A;
-    --flag: #F2C14E;
-    --flag-text: #F2C14E;
+    --ground: #1A1112;
+    --surface: #261819;
+    --ink: #F1E9E2;
+    --ink-soft: #B3A097;
+    --line: #3E2B2C;
+    --match: #8FB996;
+    --gap: #E0675A;
+    --flag: #E0B25B;
   }
 }
 
 :root[data-theme="dark"],
 .dark {
-  --ground: #1D1424;
-  --surface: #2A1E33;
-  --ink: #EDE7EF;
-  --ink-soft: #A99BB3;
-  --line: #3D2F48;
-  --match: #6CC2B6;
-  --gap: #F0869A;
-  --flag: #F2C14E;
-  --flag-text: #F2C14E;
+  --ground: #1A1112;
+  --surface: #261819;
+  --ink: #F1E9E2;
+  --ink-soft: #B3A097;
+  --line: #3E2B2C;
+  --match: #8FB996;
+  --gap: #E0675A;
+  --flag: #E0B25B;
 }
 
 :root[data-theme="light"],
 .light {
-  --ground: #ECEFEA;
-  --surface: #F8FAF7;
-  --ink: #2B1B34;
-  --ink-soft: #6B5E73;
-  --line: #D3D9D2;
-  --match: #2E7D74;
-  --gap: #B5334A;
-  --flag: #E0A526;
-  --flag-text: #835B07;
+  --ground: #EEE7E6;
+  --surface: #FAF6F5;
+  --ink: #2A1415;
+  --ink-soft: #6B5456;
+  --line: #D9CCCB;
+  --match: #3F6E49;
+  --gap: #A12D2D;
+  --flag: #8A5F0C;
 }
 
 * {
@@ -83,7 +79,7 @@ table,
   font-variant-numeric: tabular-nums;
 }
 
-/* Accessible focus visible */
+/* Accessible focus visible: 2px --match, 2px offset */
 :focus-visible {
   outline: 2px solid var(--match);
   outline-offset: 2px;
@@ -114,4 +110,17 @@ table,
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--ink-soft);
+}
+
+@keyframes indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(350%);
+  }
+}
+
+.animate-indeterminate {
+  animation: indeterminate 1.5s infinite ease-in-out;
 }

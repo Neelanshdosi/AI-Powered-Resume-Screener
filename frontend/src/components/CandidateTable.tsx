@@ -16,7 +16,7 @@ export function getScoreColor(score: number): { textClass: string; barColor: str
     return { textClass: "text-[var(--match)]", barColor: "var(--match)" };
   }
   if (score >= 50) {
-    return { textClass: "text-[var(--flag-text)]", barColor: "var(--flag)" };
+    return { textClass: "text-[var(--flag)]", barColor: "var(--flag)" };
   }
   return { textClass: "text-[var(--gap)]", barColor: "var(--gap)" };
 }
@@ -45,7 +45,7 @@ export default function CandidateTable({
       <div className="hidden sm:block overflow-x-auto">
         <table className="w-full text-left text-sm tabular-nums border-collapse">
           <thead>
-            <tr className="border-b border-[var(--line)] text-xs text-[var(--ink-soft)] uppercase tracking-wider sticky top-0 bg-[var(--surface)] z-10">
+            <tr className="border-b border-[var(--line)] text-xs text-[var(--ink-soft)] sticky top-0 bg-[var(--surface)] z-10">
               <th scope="col" className="py-3 px-4 w-14 font-medium">
                 <button
                   type="button"
@@ -145,7 +145,7 @@ export default function CandidateTable({
                       {c.filename}
                     </div>
                     {c.ai_error && (
-                      <div className="text-[11px] text-[var(--flag-text)] mt-0.5">
+                      <div className="text-[11px] text-[var(--flag)] mt-0.5">
                         Basic parser fallback
                       </div>
                     )}
@@ -223,25 +223,25 @@ export default function CandidateTable({
               {/* Sub-scores 4 columns */}
               <div className="grid grid-cols-4 gap-1 text-[11px] text-[var(--ink-soft)] pt-1 border-t border-[var(--line)]/40">
                 <div>
-                  <span className="block text-[10px] uppercase">Skills</span>
+                  <span className="block text-[10px]">Skills</span>
                   <span className="text-[var(--ink)] font-medium">
                     {Math.round(c.skills_match ?? 0)}
                   </span>
                 </div>
                 <div>
-                  <span className="block text-[10px] uppercase">Wording</span>
+                  <span className="block text-[10px]">Wording</span>
                   <span className="text-[var(--ink)] font-medium">
                     {Math.round(c.semantic_similarity ?? 0)}
                   </span>
                 </div>
                 <div>
-                  <span className="block text-[10px] uppercase">Exp</span>
+                  <span className="block text-[10px]">Exp</span>
                   <span className="text-[var(--ink)] font-medium">
                     {Math.round(c.experience_relevance ?? 0)}
                   </span>
                 </div>
                 <div>
-                  <span className="block text-[10px] uppercase">Edu</span>
+                  <span className="block text-[10px]">Edu</span>
                   <span className="text-[var(--ink)] font-medium">
                     {Math.round(c.education_relevance ?? 0)}
                   </span>
