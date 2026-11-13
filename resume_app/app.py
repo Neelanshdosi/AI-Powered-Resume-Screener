@@ -252,22 +252,88 @@ def calculate_ats(resume_text: str, job_description: str) -> dict:
     return {"score": score, "matched": unique_matched, "missing": missing}
 
 # ------------------ Gemini helpers ------------------ #
+_discovered_endpoints = []
+_discovery_done = False
+
+def get_candidate_endpoints() -> list[str]:
+    global _discovered_endpoints, _discovery_done
+    if _discovery_done and _discovered_endpoints:
+        return _discovered_endpoints
+
+    endpoints = []
+    if CUSTOM_GEMINI_API_URL:
+        endpoints.append(CUSTOM_GEMINI_API_URL)
+
+    user_model = os.getenv("GEMINI_MODEL")
+    if user_model:
+        endpoints.append(f"https://generativelanguage.googleapis.com/v1beta/models/{user_model}:generateContent")
+        endpoints.append(f"https://generativelanguage.googleapis.com/v1/models/{user_model}:generateContent")
+
+    # Dynamic model discovery via Google's ListModels API
+    if GEMINI_API_KEY:
+        for ver in ["v1beta", "v1"]:
+            try:
+                r = requests.get(
+                    f"https://generativelanguage.googleapis.com/{ver}/models",
+                    params={"key": GEMINI_API_KEY},
+                    timeout=8,
+                )
+                if r.status_code == 200:
+                    data = r.json()
+                    for m in data.get("models", []):
+                        methods = m.get("supportedGenerationMethods", [])
+                        if "generateContent" in methods:
+                            m_name = m.get("name", "")
+                            if not m_name.startswith("models/"):
+                                m_name = f"models/{m_name}"
+                            url = f"https://generativelanguage.googleapis.com/{ver}/{m_name}:generateContent"
+                            if url not in endpoints:
+                                endpoints.append(url)
+            except Exception:
+                pass
+
+    # Static fallbacks across v1beta and v1 if ListModels didn't return models
+    static_models = [
+        "gemini-1.5-flash",
+        "gemini-1.5-flash-latest",
+        "gemini-2.0-flash",
+        "gemini-2.0-flash-exp",
+        "gemini-1.5-pro",
+        "gemini-1.5-pro-latest",
+        "gemini-pro",
+    ]
+    for m in static_models:
+        for ver in ["v1beta", "v1"]:
+            url = f"https://generativelanguage.googleapis.com/{ver}/models/{m}:generateContent"
+            if url not in endpoints:
+                endpoints.append(url)
+
+    def score_endpoint(url: str) -> int:
+        u = url.lower()
+        if "1.5-flash" in u:
+            return 0
+        if "flash" in u:
+            return 1
+        if "1.5-pro" in u:
+            return 2
+        if "pro" in u:
+            return 3
+        return 4
+
+    endpoints.sort(key=score_endpoint)
+    _discovered_endpoints = endpoints
+    _discovery_done = True
+    return endpoints
+
 def gemini_request(prompt: str) -> dict:
     if not GEMINI_API_KEY:
         return {"ok": False, "text": "", "error": "Gemini API key not set."}
     payload = {"contents": [{"parts": [{"text": prompt}]}]}
 
-    # If custom URL provided, try that first
-    endpoints = []
-    if CUSTOM_GEMINI_API_URL:
-        endpoints.append(CUSTOM_GEMINI_API_URL)
-    for model in GEMINI_MODELS:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-        if url not in endpoints:
-            endpoints.append(url)
-
+    endpoints = get_candidate_endpoints()
     last_error = "Unknown error"
-    for endpoint in endpoints:
+
+    for endpoint in list(endpoints):
         for attempt in range(2):
             try:
                 resp = requests.post(
@@ -279,15 +345,24 @@ def gemini_request(prompt: str) -> dict:
                 )
                 if resp.status_code == 200:
                     data = resp.json()
-                    text = data["candidates"][0]["content"]["parts"][0]["text"]
-                    return {"ok": True, "text": text, "error": ""}
+                    candidates = data.get("candidates", [])
+                    if candidates and "content" in candidates[0] and "parts" in candidates[0]["content"]:
+                        text = candidates[0]["content"]["parts"][0].get("text", "")
+                        # Promote winning endpoint to front of list for future calls
+                        if endpoint != endpoints[0]:
+                            endpoints.remove(endpoint)
+                            endpoints.insert(0, endpoint)
+                        return {"ok": True, "text": text, "error": ""}
                 if resp.status_code == 404:
-                    # Model not found on this endpoint, fall through to next model
-                    last_error = f"Gemini API error: {resp.text}"
+                    # Model not found on this endpoint, immediately try next endpoint
+                    last_error = f"Gemini API error ({resp.status_code}): {resp.text}"
+                    break
+                if resp.status_code == 429:
+                    last_error = f"Gemini API rate limit ({resp.status_code}): {resp.text}"
                     break
                 if resp.status_code == 503:
                     continue
-                last_error = f"Gemini API error: {resp.text}"
+                last_error = f"Gemini API error ({resp.status_code}): {resp.text}"
             except Exception as e:
                 last_error = str(e)
                 break
