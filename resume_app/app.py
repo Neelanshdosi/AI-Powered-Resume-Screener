@@ -328,13 +328,28 @@ def get_candidate_endpoints() -> list[str]:
 def gemini_request(prompt: str) -> dict:
     if not GEMINI_API_KEY:
         return {"ok": False, "text": "", "error": "Gemini API key not set."}
-    payload = {"contents": [{"parts": [{"text": prompt}]}]}
+
+    # Preferred payload with structured JSON output enforcement
+    payload_json = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "temperature": 0.2,
+            "response_mime_type": "application/json",
+        },
+    }
+    payload_plain = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "temperature": 0.2,
+        },
+    }
 
     endpoints = get_candidate_endpoints()
     last_error = "Unknown error"
 
     for endpoint in list(endpoints):
-        for attempt in range(2):
+        # Try with JSON enforcement first; if 400, retry with plain payload
+        for payload in [payload_json, payload_plain]:
             try:
                 resp = requests.post(
                     endpoint,
@@ -348,13 +363,14 @@ def gemini_request(prompt: str) -> dict:
                     candidates = data.get("candidates", [])
                     if candidates and "content" in candidates[0] and "parts" in candidates[0]["content"]:
                         text = candidates[0]["content"]["parts"][0].get("text", "")
-                        # Promote winning endpoint to front of list for future calls
                         if endpoint != endpoints[0]:
                             endpoints.remove(endpoint)
                             endpoints.insert(0, endpoint)
                         return {"ok": True, "text": text, "error": ""}
+                if resp.status_code == 400 and payload is payload_json:
+                    # Model might not support response_mime_type, retry with plain payload
+                    continue
                 if resp.status_code == 404:
-                    # Model not found on this endpoint, immediately try next endpoint
                     last_error = f"Gemini API error ({resp.status_code}): {resp.text}"
                     break
                 if resp.status_code == 429:
@@ -369,27 +385,62 @@ def gemini_request(prompt: str) -> dict:
 
     return {"ok": False, "text": "", "error": last_error}
 
-def extract_json_block(text: str) -> str | None:
-    m = re.search(r"\{.*\}", text, re.DOTALL)
-    return m.group(0) if m else None
+def extract_and_parse_json(raw: str) -> dict | None:
+    if not raw:
+        return None
+    # 1. Clean markdown code fences if present
+    cleaned = re.sub(r"^```(?:json)?\s*", "", raw.strip(), flags=re.MULTILINE)
+    cleaned = re.sub(r"```\s*$", "", cleaned.strip(), flags=re.MULTILINE).strip()
+    try:
+        return json.loads(cleaned, strict=False)
+    except Exception:
+        pass
+
+    # 2. Extract outermost { ... }
+    m = re.search(r"(\{.*\})", cleaned, re.DOTALL)
+    if m:
+        candidate = m.group(1).strip()
+        try:
+            return json.loads(candidate, strict=False)
+        except Exception:
+            pass
+
+        # 3. Clean trailing commas before } or ]
+        candidate_no_commas = re.sub(r",\s*([\}\]])", r"\1", candidate)
+        try:
+            return json.loads(candidate_no_commas, strict=False)
+        except Exception:
+            pass
+
+        # 4. Clean single line comments // ...
+        candidate_no_comments = re.sub(r"//.*$", "", candidate_no_commas, flags=re.MULTILINE)
+        try:
+            return json.loads(candidate_no_comments, strict=False)
+        except Exception:
+            pass
+
+    return None
 
 def get_details_and_tips_with_gemini(resume_text: str, role_label: str) -> tuple[dict, list, str]:
-    prompt = f"""
-You are an AI Resume Reviewer.
-Return STRICT JSON ONLY. No prose.
+    prompt = f"""You are an expert HR Resume Reviewer.
+Analyze the following resume and extract candidate details and tailored improvement tips for the role: "{role_label}".
 
-Fields:
-- Name
-- Email
-- Phone
-- Skills
-- Education
-- Experience
-- Projects
-- Tips
+Respond with a single valid JSON object strictly matching this schema:
+{{
+  "Name": "Candidate Full Name or null",
+  "Email": "Candidate Email or null",
+  "Phone": "Candidate Phone or null",
+  "Skills": ["Skill 1", "Skill 2"],
+  "Education": ["Degree/Institution 1"],
+  "Experience": ["Role and company summary 1"],
+  "Projects": ["Project name and description 1"],
+  "Tips": ["Actionable improvement tip 1", "Actionable improvement tip 2"]
+}}
 
-Resume:
-{resume_text}
+DO NOT include any explanation, markdown intro, or text before or after the JSON.
+
+Resume content:
+{resume_text[:6000]}
 """
     r = gemini_request(prompt)
     if not r["ok"]:
@@ -403,10 +454,8 @@ Resume:
         return details, tips, r["error"]
 
     raw = r["text"]
-    js = extract_json_block(raw) or raw
-    try:
-        data = json.loads(js)
-    except Exception:
+    data = extract_and_parse_json(raw)
+    if not data or not isinstance(data, dict):
         details = basic_details_from_text(resume_text)
         tips = [
             "Add measurable achievements (numbers, impact).",
@@ -417,10 +466,10 @@ Resume:
         return details, tips, "AI returned non-JSON output."
 
     details = {
-        "Name": data.get("Name"),
-        "Email": data.get("Email"),
-        "Phone": data.get("Phone"),
-        "Skills": data.get("Skills") or [],
+        "Name": data.get("Name") or basic_details_from_text(resume_text).get("Name"),
+        "Email": data.get("Email") or basic_details_from_text(resume_text).get("Email"),
+        "Phone": data.get("Phone") or basic_details_from_text(resume_text).get("Phone"),
+        "Skills": data.get("Skills") or basic_details_from_text(resume_text).get("Skills") or [],
         "Education": data.get("Education") or [],
         "Experience": data.get("Experience") or [],
         "Projects": data.get("Projects") or []
