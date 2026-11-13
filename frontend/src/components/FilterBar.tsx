@@ -113,8 +113,14 @@ export default function FilterBar({
                 className="w-24 sm:w-28 accent-blue-600 h-1.5 cursor-pointer"
               />
             </div>
-            <div className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--surface)] border border-[var(--border-subtle)] text-[var(--text-secondary)] shrink-0">
+            <div
+              aria-live="polite"
+              aria-atomic="true"
+              className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--surface)] border border-[var(--border-subtle)] text-[var(--text-secondary)] shrink-0"
+            >
+              <span className="sr-only">Showing </span>
               {filteredCount} / {totalCount}
+              <span className="sr-only"> candidates</span>
             </div>
           </div>
 
