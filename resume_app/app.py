@@ -43,7 +43,9 @@ os.makedirs(os.path.join(app.config["UPLOAD_FOLDER"], "jd"), exist_ok=True)
 
 # ==== Configure Gemini ====
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+_env_model = os.getenv("GEMINI_MODEL")
+GEMINI_MODELS = [m for m in [_env_model, "gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"] if m]
+CUSTOM_GEMINI_API_URL = os.getenv("GEMINI_API_URL")
 
 # ==== Predefined JDs by role (extended) ====
 JOB_DESCRIPTIONS = {
@@ -254,25 +256,43 @@ def gemini_request(prompt: str) -> dict:
     if not GEMINI_API_KEY:
         return {"ok": False, "text": "", "error": "Gemini API key not set."}
     payload = {"contents": [{"parts": [{"text": prompt}]}]}
-    try:
-        for attempt in range(3):
-            resp = requests.post(
-                GEMINI_API_URL,
-                params={"key": GEMINI_API_KEY},
-                headers={"Content-Type": "application/json"},
-                json=payload,
-                timeout=60
-            )
-            if resp.status_code == 200:
-                data = resp.json()
-                text = data["candidates"][0]["content"]["parts"][0]["text"]
-                return {"ok": True, "text": text, "error": ""}
-            if resp.status_code == 503:
-                continue
-            return {"ok": False, "text": "", "error": f"Gemini API error: {resp.text}"}
-    except Exception as e:
-        return {"ok": False, "text": "", "error": str(e)}
-    return {"ok": False, "text": "", "error": "Unknown error"}
+
+    # If custom URL provided, try that first
+    endpoints = []
+    if CUSTOM_GEMINI_API_URL:
+        endpoints.append(CUSTOM_GEMINI_API_URL)
+    for model in GEMINI_MODELS:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+        if url not in endpoints:
+            endpoints.append(url)
+
+    last_error = "Unknown error"
+    for endpoint in endpoints:
+        for attempt in range(2):
+            try:
+                resp = requests.post(
+                    endpoint,
+                    params={"key": GEMINI_API_KEY},
+                    headers={"Content-Type": "application/json"},
+                    json=payload,
+                    timeout=30,
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    text = data["candidates"][0]["content"]["parts"][0]["text"]
+                    return {"ok": True, "text": text, "error": ""}
+                if resp.status_code == 404:
+                    # Model not found on this endpoint, fall through to next model
+                    last_error = f"Gemini API error: {resp.text}"
+                    break
+                if resp.status_code == 503:
+                    continue
+                last_error = f"Gemini API error: {resp.text}"
+            except Exception as e:
+                last_error = str(e)
+                break
+
+    return {"ok": False, "text": "", "error": last_error}
 
 def extract_json_block(text: str) -> str | None:
     m = re.search(r"\{.*\}", text, re.DOTALL)
