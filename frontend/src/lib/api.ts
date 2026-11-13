@@ -3,25 +3,46 @@ import type { AnalyzeResponse, CandidateResult } from "./types";
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "http://127.0.0.1:5000";
 
-async function parseError(response: Response): Promise<string> {
+export async function parseError(response: Response): Promise<string> {
   try {
-    const data = await response.json();
-    return data.error || `Request failed (${response.status})`;
+    const text = await response.text();
+    try {
+      const data = JSON.parse(text);
+      return data.error || `Server responded with status ${response.status}`;
+    } catch {
+      return text && text.length < 200
+        ? text
+        : `Server responded with status ${response.status}`;
+    }
   } catch {
-    return `Request failed (${response.status})`;
+    return `Request failed with status ${response.status}`;
   }
 }
 
 export async function analyzeResumes(formData: FormData): Promise<AnalyzeResponse> {
-  const response = await fetch(`${API_URL}/analyze`, {
-    method: "POST",
-    body: formData,
-  });
-  const payload = (await response.json()) as AnalyzeResponse;
-  if (!response.ok) {
-    throw new Error(payload.error || `Request failed (${response.status})`);
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/analyze`, {
+      method: "POST",
+      body: formData,
+    });
+  } catch (networkError) {
+    throw new Error(
+      `Unable to reach backend server at ${API_URL}. Please ensure the Flask app is running.`
+    );
   }
-  return payload;
+
+  if (!response.ok) {
+    const message = await parseError(response);
+    throw new Error(message);
+  }
+
+  try {
+    const payload = (await response.json()) as AnalyzeResponse;
+    return payload;
+  } catch {
+    throw new Error("Invalid response format received from server.");
+  }
 }
 
 export async function exportResults(
@@ -29,11 +50,19 @@ export async function exportResults(
   results: CandidateResult[]
 ): Promise<Blob> {
   const endpoint = kind === "csv" ? "/export/csv" : "/export/xlsx";
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ results }),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${endpoint}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ results }),
+    });
+  } catch {
+    throw new Error(
+      `Export network request failed. Check server connectivity at ${API_URL}.`
+    );
+  }
+
   if (!response.ok) {
     throw new Error(await parseError(response));
   }
@@ -45,6 +74,12 @@ export function downloadBlob(blob: Blob, filename: string) {
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = filename;
+  document.body.appendChild(anchor);
   anchor.click();
-  URL.revokeObjectURL(url);
+  document.body.removeChild(anchor);
+
+  // Delay revoking URL so asynchronous file handlers can complete
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 2000);
 }
