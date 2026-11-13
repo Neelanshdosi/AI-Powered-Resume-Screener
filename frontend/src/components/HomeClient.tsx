@@ -1,199 +1,169 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useToast } from "@/context/ToastContext";
+import { useAnalysis } from "@/hooks/useAnalysis";
+import { useCandidateFilters } from "@/hooks/useCandidateFilters";
 import Header from "./Header";
-import ResumeDropZone from "./ResumeDropZone";
+import AnalysisForm from "./AnalysisForm";
 import Dashboard from "./Dashboard";
+import EmptyState from "./EmptyState";
 import CandidateSkeleton from "./CandidateSkeleton";
-import { analyzeResumes, downloadBlob, exportResults } from "@/lib/api";
-import { filterCandidates } from "@/lib/filters";
-import { JOB_ROLES, type CandidateResult } from "@/lib/types";
+import CandidateDrawer from "./CandidateDrawer";
+import { exportResults, downloadBlob } from "@/lib/api";
 
 export default function HomeClient() {
-  const [resumeFiles, setResumeFiles] = useState<File[]>([]);
-  const [jobRole, setJobRole] = useState("SDE");
-  const [jobDescription, setJobDescription] = useState("");
-  const [jdFile, setJdFile] = useState<File | null>(null);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [status, setStatus] = useState("");
-  const [allResults, setAllResults] = useState<CandidateResult[]>([]);
-  const [showDashboard, setShowDashboard] = useState(false);
-  const [search, setSearch] = useState("");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [minScore, setMinScore] = useState(0);
-  const progressTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { addToast } = useToast();
 
-  useEffect(() => {
-    return () => {
-      if (progressTimer.current) clearInterval(progressTimer.current);
-    };
-  }, []);
+  const {
+    managedFiles,
+    setManagedFiles,
+    jobRole,
+    setJobRole,
+    jobDescription,
+    setJobDescription,
+    jdFile,
+    setJdFile,
+    jdInputMode,
+    setJdInputMode,
+    analyzing,
+    statusMessage,
+    results,
+    error,
+    setError,
+    isSampleData,
+    isValid,
+    validationReason,
+    runAnalysis,
+    loadSampleData,
+  } = useAnalysis((type, msg, title) => addToast(type, msg, title));
 
-  const startProgress = () => {
-    setProgress(10);
-    if (progressTimer.current) clearInterval(progressTimer.current);
-    progressTimer.current = setInterval(() => {
-      setProgress((prev) => (prev < 92 ? prev + 6 : prev));
-    }, 400);
-  };
-
-  const stopProgress = () => {
-    if (progressTimer.current) clearInterval(progressTimer.current);
-    setProgress(100);
-    setTimeout(() => {
-      setProgress(0);
-      setStatus("");
-    }, 450);
-  };
-
-  const handleAnalyze = async () => {
-    if (!resumeFiles.length) {
-      alert("Please upload at least one resume.");
-      return;
-    }
-    if (jobRole === "custom" && !jobDescription.trim() && !jdFile) {
-      alert("Provide custom JD text or upload a JD file.");
-      return;
-    }
-
-    const form = new FormData();
-    resumeFiles.forEach((file) => form.append("resumes", file, file.name));
-    form.append("jobRole", jobRole);
-    form.append("jobDescription", jobDescription);
-    if (jdFile) form.append("jobDescriptionFile", jdFile, jdFile.name);
-
-    setAnalyzing(true);
-    setShowDashboard(true);
-    setStatus(`Processing ${resumeFiles.length} resume(s)...`);
-    startProgress();
-
-    try {
-      const payload = await analyzeResumes(form);
-      setAllResults(payload.results || []);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Network error.");
-    } finally {
-      stopProgress();
-      setAnalyzing(false);
-    }
-  };
+  const {
+    filters,
+    viewMode,
+    setViewMode,
+    selectedCandidate,
+    setSelectedCandidate,
+    filteredResults,
+    cohortStats,
+    setSearch,
+    setMinScore,
+    setSort,
+    clearFilters,
+    hasActiveFilters,
+  } = useCandidateFilters(results);
 
   const handleExport = async (kind: "csv" | "xlsx") => {
-    if (!allResults.length) {
-      alert("No results to export.");
+    if (filteredResults.length === 0) {
+      addToast("warning", "No candidates available to export with current filters.", "Export skipped");
       return;
     }
+
     try {
-      const rows = filterCandidates(allResults, search, minScore, sortOrder);
-      const blob = await exportResults(kind, rows);
-      downloadBlob(
-        blob,
-        kind === "csv" ? "candidate_rankings.csv" : "candidate_rankings.xlsx"
+      const blob = await exportResults(kind, filteredResults);
+      const filename =
+        kind === "csv"
+          ? `candidate_rankings_${jobRole.toLowerCase().replace(/\s+/g, "_")}.csv`
+          : `candidate_rankings_${jobRole.toLowerCase().replace(/\s+/g, "_")}.xlsx`;
+
+      downloadBlob(blob, filename);
+      addToast(
+        "success",
+        `Downloaded ${filteredResults.length} candidate rankings as ${kind.toUpperCase()}.`,
+        "Export successful"
       );
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Export failed.");
+      const msg = err instanceof Error ? err.message : "Export failed.";
+      addToast("error", msg, "Export failed");
     }
+  };
+
+  const handleRejectedFiles = (rejected: string[]) => {
+    addToast(
+      "warning",
+      `Skipped unsupported file(s): ${rejected.join(", ")}. Allowed formats: PDF, DOC, DOCX.`,
+      "File format notice"
+    );
   };
 
   return (
-    <main className="max-w-7xl mx-auto p-5 md:p-8 space-y-6">
-      <Header />
+    <div className="min-h-screen flex flex-col bg-[var(--canvas)] text-[var(--text-primary)] transition-colors">
+      <Header
+        onLoadSample={loadSampleData}
+        hasResults={results.length > 0}
+      />
 
-      <section className="bg-slate-900 border border-slate-800 rounded-2xl p-5 md:p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
+        {/* Intake & Form Setup */}
+        <AnalysisForm
+          managedFiles={managedFiles}
+          onFilesChange={setManagedFiles}
+          jobRole={jobRole}
+          onJobRoleChange={setJobRole}
+          jobDescription={jobDescription}
+          onJobDescriptionChange={setJobDescription}
+          jdFile={jdFile}
+          onJdFileChange={setJdFile}
+          jdInputMode={jdInputMode}
+          onJdInputModeChange={setJdInputMode}
+          analyzing={analyzing}
+          statusMessage={statusMessage}
+          error={error}
+          onDismissError={() => setError(null)}
+          isValid={isValid}
+          validationReason={validationReason}
+          onRunAnalysis={runAnalysis}
+          onLoadSample={loadSampleData}
+          hasResults={results.length > 0}
+          onRejectedFiles={handleRejectedFiles}
+        />
+
+        {/* Screening Results Section */}
+        {analyzing ? (
           <div className="space-y-4">
-            <div>
-              <label className="block font-semibold mb-2">
-                Upload Resumes (PDF/DOC/DOCX)
-              </label>
-              <ResumeDropZone files={resumeFiles} onFilesChange={setResumeFiles} />
+            <div className="flex items-center justify-between text-xs text-[var(--text-muted)] px-1">
+              <span className="font-semibold text-[var(--text-secondary)]">
+                {statusMessage}
+              </span>
+              <span>Analyzing multidimensional fit...</span>
             </div>
-            <div>
-              <label className="block font-semibold mb-2">Select Job Role</label>
-              <select
-                value={jobRole}
-                onChange={(e) => setJobRole(e.target.value)}
-                className="w-full p-3 bg-slate-800 border border-slate-700 rounded-lg"
-              >
-                {JOB_ROLES.map((role) => (
-                  <option key={role.value} value={role.value}>
-                    {role.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block font-semibold mb-2">Paste Job Description</label>
-              <textarea
-                value={jobDescription}
-                onChange={(e) => setJobDescription(e.target.value)}
-                className="w-full p-3 bg-slate-800 border border-slate-700 rounded-lg min-h-[120px]"
-                placeholder="Paste JD text here. Required if role = custom and no JD file is uploaded."
-              />
-            </div>
-            <div>
-              <label className="block font-semibold mb-2">
-                Or Upload JD File (PDF/DOC/DOCX/TXT)
-              </label>
-              <input
-                type="file"
-                accept=".pdf,.doc,.docx,.txt"
-                onChange={(e) => setJdFile(e.target.files?.[0] ?? null)}
-                className="w-full p-3 bg-slate-800 border border-slate-700 rounded-lg"
-              />
-            </div>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={handleAnalyze}
-          disabled={analyzing}
-          className="mt-5 w-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 text-black font-bold py-3 rounded-xl transition"
-        >
-          {analyzing ? "Analyzing..." : "Analyze & Rank Candidates"}
-        </button>
-
-        {(analyzing || progress > 0) && (
-          <div className="mt-4">
-            <div className="w-full bg-slate-700 rounded-full h-3">
-              <div
-                className="bg-emerald-500 h-3 rounded-full transition-all duration-300"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            {status && <p className="text-sm text-slate-300 mt-1">{status}</p>}
-          </div>
-        )}
-      </section>
-
-      {showDashboard && (
-        <>
-          {analyzing && !allResults.length ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
               {Array.from({ length: 6 }).map((_, i) => (
                 <CandidateSkeleton key={i} />
               ))}
             </div>
-          ) : (
-            <Dashboard
-              results={allResults}
-              search={search}
-              sortOrder={sortOrder}
-              minScore={minScore}
-              onSearchChange={setSearch}
-              onSortChange={setSortOrder}
-              onMinScoreChange={setMinScore}
-              onExportCsv={() => handleExport("csv")}
-              onExportXlsx={() => handleExport("xlsx")}
-            />
-          )}
-        </>
-      )}
-    </main>
+          </div>
+        ) : results.length > 0 ? (
+          <Dashboard
+            allResults={results}
+            filteredResults={filteredResults}
+            jobRole={jobRole}
+            isSampleData={isSampleData}
+            cohortStats={cohortStats}
+            search={filters.search}
+            onSearchChange={setSearch}
+            minScore={filters.minScore}
+            onMinScoreChange={setMinScore}
+            sortField={filters.sortField}
+            sortDirection={filters.sortDirection}
+            onSort={setSort}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            hasActiveFilters={hasActiveFilters}
+            onClearFilters={clearFilters}
+            onSelectCandidate={setSelectedCandidate}
+            onExportCsv={() => handleExport("csv")}
+            onExportXlsx={() => handleExport("xlsx")}
+          />
+        ) : (
+          <EmptyState onLoadSample={loadSampleData} />
+        )}
+      </main>
+
+      {/* Candidate Dossier Drawer (Problem 5) */}
+      <CandidateDrawer
+        candidate={selectedCandidate}
+        onClose={() => setSelectedCandidate(null)}
+      />
+    </div>
   );
 }

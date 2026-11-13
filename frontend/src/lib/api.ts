@@ -26,7 +26,7 @@ export async function analyzeResumes(formData: FormData): Promise<AnalyzeRespons
       method: "POST",
       body: formData,
     });
-  } catch (networkError) {
+  } catch {
     throw new Error(
       `Unable to reach backend server at ${API_URL}. Please ensure the Flask app is running.`
     );

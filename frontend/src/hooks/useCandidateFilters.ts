@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import type { CandidateResult, ViewMode } from "@/lib/types";
 import {
   filterCandidates,
@@ -10,22 +10,23 @@ import {
   type SortDirection,
 } from "@/lib/filters";
 
+function getInitialViewMode(): ViewMode {
+  if (typeof window === "undefined") return "table";
+  try {
+    const saved = localStorage.getItem("skillscan-view-mode") as ViewMode | null;
+    if (saved === "table" || saved === "cards") {
+      return saved;
+    }
+  } catch {
+    // Ignore localStorage errors
+  }
+  return "table";
+}
+
 export function useCandidateFilters(allResults: CandidateResult[]) {
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
-  const [viewMode, setViewModeState] = useState<ViewMode>("table");
+  const [viewMode, setViewModeState] = useState<ViewMode>(getInitialViewMode);
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateResult | null>(null);
-
-  // Load viewMode preference from localStorage safely
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("skillscan-view-mode") as ViewMode | null;
-      if (saved === "table" || saved === "cards") {
-        setViewModeState(saved);
-      }
-    } catch {
-      // Ignore localStorage errors
-    }
-  }, []);
 
   const setViewMode = useCallback((mode: ViewMode) => {
     setViewModeState(mode);

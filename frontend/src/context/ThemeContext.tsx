@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useSyncExternalStore } from "react";
 
 type Theme = "light" | "dark" | "system";
 
@@ -13,62 +13,49 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("system");
-  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("dark");
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("skillscan-theme") as Theme | null;
-      if (saved && (saved === "light" || saved === "dark" || saved === "system")) {
-        setThemeState(saved);
-      }
-    } catch {
-      // Ignore localStorage errors
+function getSavedTheme(): Theme {
+  if (typeof window === "undefined") return "system";
+  try {
+    const saved = localStorage.getItem("skillscan-theme") as Theme | null;
+    if (saved === "light" || saved === "dark" || saved === "system") {
+      return saved;
     }
-  }, []);
+  } catch {
+    // Ignore localStorage errors
+  }
+  return "system";
+}
+
+function subscribeToMedia(callback: () => void) {
+  if (typeof window === "undefined") return () => {};
+  const media = window.matchMedia("(prefers-color-scheme: dark)");
+  media.addEventListener("change", callback);
+  return () => media.removeEventListener("change", callback);
+}
+
+function getSystemDarkSnapshot(): boolean {
+  if (typeof window === "undefined") return true;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+
+export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const [theme, setThemeState] = useState<Theme>(getSavedTheme);
+  const isSystemDark = useSyncExternalStore(subscribeToMedia, getSystemDarkSnapshot, () => true);
+
+  const resolvedTheme: "light" | "dark" =
+    theme === "system" ? (isSystemDark ? "dark" : "light") : theme;
 
   useEffect(() => {
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-
-    const computeResolvedTheme = (): "light" | "dark" => {
-      if (theme === "system") {
-        return media.matches ? "dark" : "light";
-      }
-      return theme;
-    };
-
-    const resolved = computeResolvedTheme();
-    setResolvedTheme(resolved);
-
     const root = document.documentElement;
-    root.setAttribute("data-theme", resolved);
-    if (resolved === "dark") {
+    root.setAttribute("data-theme", resolvedTheme);
+    if (resolvedTheme === "dark") {
       root.classList.add("dark");
       root.classList.remove("light");
     } else {
       root.classList.add("light");
       root.classList.remove("dark");
     }
-
-    const listener = () => {
-      if (theme === "system") {
-        const newResolved = media.matches ? "dark" : "light";
-        setResolvedTheme(newResolved);
-        root.setAttribute("data-theme", newResolved);
-        if (newResolved === "dark") {
-          root.classList.add("dark");
-          root.classList.remove("light");
-        } else {
-          root.classList.add("light");
-          root.classList.remove("dark");
-        }
-      }
-    };
-
-    media.addEventListener("change", listener);
-    return () => media.removeEventListener("change", listener);
-  }, [theme]);
+  }, [resolvedTheme]);
 
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);

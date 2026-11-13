@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { UploadCloud, FileText, Trash2, Plus } from "lucide-react";
+import { UploadCloud, Trash2, Plus } from "lucide-react";
 import { mergeResumeFiles, type ManagedFile } from "@/lib/files";
 
 interface ResumeDropZoneProps {
