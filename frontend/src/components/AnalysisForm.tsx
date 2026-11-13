@@ -51,25 +51,26 @@ export default function AnalysisForm({
   hasResults,
   onRejectedFiles,
 }: AnalysisFormProps) {
-  // Collapses to a one-line summary after analysis
-  const [collapsed, setCollapsed] = useState(hasResults);
+  // Automatically collapses to a one-line summary after analysis
+  const [manuallyExpanded, setManuallyExpanded] = useState(false);
+  const isCollapsed = hasResults && !manuallyExpanded;
 
   const selectedRoleLabel =
     JOB_ROLES.find((r) => r.value === jobRole)?.label || jobRole;
 
   // If results exist and collapsed, show quiet one-line summary
-  if (hasResults && collapsed) {
+  if (isCollapsed) {
     return (
       <div className="py-2.5 px-3 border border-[var(--line)] bg-[var(--surface)] text-xs flex items-center justify-between">
         <div className="flex items-center gap-2 text-[var(--ink)]">
           <span className="text-[var(--ink-soft)]">Setup:</span>
           <span>
-            {selectedRoleLabel} · {managedFiles.length > 0 ? `${managedFiles.length} resumes staged` : "Active cohort"}
+            {selectedRoleLabel} · {managedFiles.length > 0 ? `${managedFiles.length} resumes staged` : "7 candidates scored"}
           </span>
         </div>
         <button
           type="button"
-          onClick={() => setCollapsed(false)}
+          onClick={() => setManuallyExpanded(true)}
           className="text-xs text-[var(--ink-soft)] hover:text-[var(--ink)] underline cursor-pointer"
         >
           Edit intake
@@ -87,7 +88,7 @@ export default function AnalysisForm({
         {hasResults && (
           <button
             type="button"
-            onClick={() => setCollapsed(true)}
+            onClick={() => setManuallyExpanded(false)}
             className="text-xs text-[var(--ink-soft)] hover:text-[var(--ink)] underline cursor-pointer"
           >
             Collapse
